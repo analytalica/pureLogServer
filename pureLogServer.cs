@@ -2,6 +2,8 @@
 //Run check for day table clear so there's no double entries
 //Clean up redundant stuff (make a big function for everything)
 //
+
+
 using System;
 using System.IO;
 using System.Timers;
@@ -37,6 +39,8 @@ namespace PRoConEvents
         private bool SqlConnected = true;
         private String bigTableName;
         private String dayTableName;
+        private String debugLevelString = "1";
+        private int debugLevel = 1;
 
         public pureLogServer()
         {
@@ -48,7 +52,7 @@ namespace PRoConEvents
             if (pluginEnabled)
             {
                 //this.toChat("pureLog Server Tracking " + playerCount + " players online.");
-                this.toConsole("pureLog Server Tracking " + playerCount + " players online.");
+                this.toConsole(2, "pureLog Server Tracking " + playerCount + " players online.");
                 this.goodMorning();
 
                 bool abortUpdate = false;
@@ -63,21 +67,21 @@ namespace PRoConEvents
                 try { query.Connection.Open(); }
                 catch (Exception m)
                 {
-                    this.toConsole("Couldn't open query connection! The last interval could not be saved.");
-                    this.toConsole(m.ToString());
+                    this.toConsole(1, "Couldn't open query connection! The last interval could not be saved.");
+                    this.toConsole(1, m.ToString());
                     abortUpdate = true;
                 }
                 try { query.ExecuteNonQuery(); }
                 catch (Exception m)
                 {
-                    this.toConsole("Couldn't parse query!");
-                    this.toConsole(m.ToString());
+                    this.toConsole(1, "Couldn't parse query!");
+                    this.toConsole(1, m.ToString());
                     abortUpdate = true;
                 }
                 query.Connection.Close();
                 if (!abortUpdate)
                 {
-                    toConsole("Added an interval worth " + playerCount);
+                    toConsole(2, "Added an interval worth " + playerCount);
                 }
             }
         }
@@ -85,19 +89,19 @@ namespace PRoConEvents
         //The first thing the plugin does.
         public void establishFirstConnection()
         {
-            this.toConsole("Trying to connect to " + mySqlHostname + ":" + mySqlPort + " with username " + mySqlUsername);
+            this.toConsole(2, "Trying to connect to " + mySqlHostname + ":" + mySqlPort + " with username " + mySqlUsername);
             this.firstConnection = new MySqlConnection("Server=" + mySqlHostname + ";" + "Port=" + mySqlPort + ";" + "Database=" + mySqlDatabase + ";" + "Uid=" + mySqlUsername + ";" + "Pwd=" + mySqlPassword + ";" + "Connection Timeout=5;");
             try{ this.firstConnection.Open(); }
             catch (Exception e)
             {
-                this.toConsole(e.ToString());
+                this.toConsole(1, e.ToString());
                 this.SqlConnected = false;
             }
             //Get ready to rock!
             if (SqlConnected)
             {
                 this.firstConnection.Close();
-                this.toConsole("Connection established with " + mySqlHostname + "!");
+                this.toConsole(1, "Connection established with " + mySqlHostname + "!");
                 confirmedConnection = firstConnection;
                 this.updateTimer = new Timer();
                 this.updateTimer.Elapsed += new ElapsedEventHandler(this.output);
@@ -107,7 +111,7 @@ namespace PRoConEvents
             }
             else
             {
-                this.toConsole("Could not establish an initial connection. Check the plugin settings and restart the plugin and/or Procon layer.");
+                this.toConsole(1, "Could not establish an initial connection. Check the plugin settings and restart the plugin and/or Procon layer.");
             }
         }
 
@@ -122,14 +126,14 @@ namespace PRoConEvents
             try{ query.Connection.Open(); }
             catch (Exception e)
             {
-                this.toConsole("Couldn't open query connection! The plugin will assume it is NOT a new day.");
-                this.toConsole(e.ToString());
+                this.toConsole(1, "Couldn't open query connection! The plugin will assume it is NOT a new day.");
+                this.toConsole(1, e.ToString());
             }
             try{ rowCount = int.Parse(query.ExecuteScalar().ToString()); }
             catch (Exception e)
             {
-                this.toConsole("Couldn't parse query!");
-                this.toConsole(e.ToString());
+                this.toConsole(1, "Couldn't parse query!");
+                this.toConsole(1, e.ToString());
             }
             query.Connection.Close();
 
@@ -138,8 +142,8 @@ namespace PRoConEvents
             {
                 bool abortUpdate = false;
 
-                toConsole("Today is " + dateNow + ". Good morning!");
-                toConsole("Summing up yesterday's player minutes...");
+                this.toConsole(1, "Today is " + dateNow + ". Good morning!");
+                this.toConsole(2, "Summing up yesterday's player minutes...");
 
                 //Adding up yesterday's minutes...
                 int minSum = 0;
@@ -147,19 +151,19 @@ namespace PRoConEvents
                 try{ query.Connection.Open(); }
                 catch (Exception e)
                 {
-                    this.toConsole("Couldn't open query connection! Couldn't sum up yesterday!.");
-                    this.toConsole(e.ToString());
+                    this.toConsole(1, "Couldn't open query connection! Couldn't sum up yesterday!.");
+                    this.toConsole(1, e.ToString());
                     abortUpdate = true;
                 }
                 try { minSum = int.Parse(query.ExecuteScalar().ToString()); }
                 catch (Exception e)
                 {
-                    this.toConsole("Couldn't parse query!");
-                    this.toConsole(e.ToString());
+                    this.toConsole(1, "Couldn't parse query!");
+                    this.toConsole(1, e.ToString());
                     abortUpdate = true;
                 }
                 query.Connection.Close();
-                toConsole("Yesterday's sum was " + minSum + " player minutes.");
+                this.toConsole(1, "Yesterday's sum was " + minSum + " player minutes.");
 
                 if (!abortUpdate)
                 {
@@ -168,15 +172,15 @@ namespace PRoConEvents
                     try { query.Connection.Open(); }
                     catch (Exception e)
                     {
-                        this.toConsole("Couldn't open query connection! Yesterday's big table entry was not updated.");
-                        this.toConsole(e.ToString());
+                        this.toConsole(1, "Couldn't open query connection! Yesterday's big table entry was not updated.");
+                        this.toConsole(1, e.ToString());
                         abortUpdate = true;
                     }
                     try { query.ExecuteNonQuery(); }
                     catch (Exception e)
                     {
-                        this.toConsole("Couldn't parse query!");
-                        this.toConsole(e.ToString());
+                        this.toConsole(1, "Couldn't parse query!");
+                        this.toConsole(1, e.ToString());
                         abortUpdate = true;
                     }
                     query.Connection.Close();
@@ -185,61 +189,59 @@ namespace PRoConEvents
                     if (!abortUpdate)
                     {
 
-                        toConsole("Updated yesterday's minutes!");
+                        this.toConsole(2, "Updated yesterday's minutes!");
                         //and finally, start a new day
                         query = new MySqlCommand("INSERT INTO " + bigTableName + " (date) VALUES ('" + dateNow + "')", this.confirmedConnection);
                         try { query.Connection.Open(); }
                         catch (Exception e)
                         {
-                            this.toConsole("Couldn't open query connection! Big table does not have an entry for today!");
-                            this.toConsole(e.ToString());
+                            this.toConsole(1, "Couldn't open query connection! Big table does not have an entry for today!");
+                            this.toConsole(1, e.ToString());
                             abortUpdate = true;
                         }
                         try { query.ExecuteNonQuery(); }
                         catch (Exception e)
                         {
-                            this.toConsole("Couldn't parse query!");
-                            this.toConsole(e.ToString());
+                            this.toConsole(1, "Couldn't parse query!");
+                            this.toConsole(1, e.ToString());
                             abortUpdate = true;
                         }
                         query.Connection.Close();
 
                         if (!abortUpdate)
                         {
-                            toConsole("New big table row inserted!");
+                            this.toConsole(2, "New big table row inserted!");
                             //clear the day table for a new day
                             //and finally, start a new day
                             query = new MySqlCommand("DELETE FROM " + dayTableName, this.confirmedConnection);
                             try { query.Connection.Open(); }
                             catch (Exception e)
                             {
-                                this.toConsole("Couldn't open query connection! Day Table NOT cleared!");
-                                this.toConsole(e.ToString());
+                                this.toConsole(1, "Couldn't open query connection! Day Table NOT cleared!");
+                                this.toConsole(1, e.ToString());
                                 abortUpdate = true;
                             }
                             try { query.ExecuteNonQuery(); }
                             catch (Exception e)
                             {
-                                this.toConsole("Couldn't parse query!");
-                                this.toConsole(e.ToString());
+                                this.toConsole(1, "Couldn't parse query!");
+                                this.toConsole(1, e.ToString());
                                 abortUpdate = true;
                             }
                             query.Connection.Close();
                             if (!abortUpdate)
                             {
-                                toConsole("Day table reset!");
+                                this.toConsole(2, "Day table reset!");
                                 //clear the day table for a new day
 
                             }
-
-
                         }
                     }
                 }
             }
             else
             {
-                toConsole("Same day as usual.");
+                this.toConsole(2, "Same day as usual.");
             }
         }
 
@@ -252,9 +254,13 @@ namespace PRoConEvents
             this.ExecuteCommand("procon.protected.send", "admin.say", "pureLogS: " + message, "all");
         }
 
-        public void toConsole(String message)
+        public void toConsole(int msgLevel, String message)
         {
-            this.ExecuteCommand("procon.protected.pluginconsole.write", "pureLogS: " + message);
+            //a message with msgLevel 1 is more important than 2
+            if (debugLevel >= msgLevel)
+            {
+                this.ExecuteCommand("procon.protected.pluginconsole.write", "pureLogS: " + message);
+            }
         }
 
         //---------------------------------------------------
@@ -267,7 +273,7 @@ namespace PRoConEvents
         }
         public string GetPluginVersion()
         {
-            return "0.5.4";
+            return "0.6.3";
         }
         public string GetPluginAuthor()
         {
@@ -279,10 +285,11 @@ namespace PRoConEvents
         }
         public string GetPluginDescription()
         {
-            return @"<p>Attempts to connect to an MySQL database, and then states the player count in the chatbox once every minute while checking the date on the database and inserting a new row if necessary. Make sure the MySQL server is accepting remote connections.</p>
+            return @"<p>Updates a MySQL database with daily player count logging. Make sure the MySQL server is accepting remote connections.</p>
                     <p><b>Initial Setup: </b><br/>Create a table in the database (Big Table) with three columns: id (INT), date (VARCHAR 255), and min (INT). Set id to auto-increment.<br/>
                     Make another table in the database (Day Table) with three columns: id (INT), time (VARCHAR 255), and min (INT). Set id to auto-increment.<br/>
-                    Fill out ALL plugin settings before starting the plugin. Use an IP address for hostname and. The default port is 3306.</p>
+                    Fill out ALL plugin settings before starting the plugin. Use an IP address for hostname and. The default port is 3306.<br/>
+                    The debug levels are as follows: 0 suppresses ALL messages (not recommended), 1 shows important messages only (recommended), and 2 shows ALL messages (useful for step by step debugging).</p>
                     <p><b>Troubleshooting: </b><br/>Currently there is a bug where the plugin fails to connect if it was running before a Procon layer restart. To get it working again, disable the plugin, restart the Procon layer, and enable the plugin.
                     <br/>The IP address that Procon uses to access the MySQL server is different from the IP of the layer itself. If a remote connection can't be established, try using more wildcards in the accepted connections (do %.%.%.% to test).</p>
                     <p><b>Fallbacks: </b><br/>If at any step in the table updating process the connection fails, the plugin will continue adding minutes to the most recent day. A new day for the plugin only begins when the connection is successful.
@@ -301,7 +308,7 @@ namespace PRoConEvents
         public void OnPluginEnable()
         {
             this.pluginEnabled = true;
-            this.toConsole("pureLog Server Edition Running");
+            this.toConsole(1, "pureLog Server Edition Running");
             this.establishFirstConnection();
         }
 
@@ -310,7 +317,7 @@ namespace PRoConEvents
             this.pluginEnabled = false;
             this.ExecuteCommand("procon.protected.tasks.remove", "pureLogServer");
             this.updateTimer.Stop();
-            this.toConsole("pureLog Server Edition Closed");
+            this.toConsole(1, "pureLog Server Edition Closed");
         }
 
         public override void OnServerInfo(CServerInfo csiServerInfo)
@@ -328,6 +335,7 @@ namespace PRoConEvents
             lstReturn.Add(new CPluginVariable("MySQL Settings|MySQL Password", typeof(string), mySqlPassword));
             lstReturn.Add(new CPluginVariable("Table Names|Big Table", typeof(string), bigTableName));
             lstReturn.Add(new CPluginVariable("Table Names|Day Table", typeof(string), dayTableName));
+            lstReturn.Add(new CPluginVariable("Other|Debug Level", typeof(string), debugLevelString));
             return lstReturn;
         }
 
@@ -375,7 +383,16 @@ namespace PRoConEvents
             {
                 dayTableName = strValue;
             }
-
+            else if (Regex.Match(strVariable, @"Debug Level").Success)
+            {
+                debugLevelString = strValue;
+                try{
+                    debugLevel = Int32.Parse(debugLevelString);
+                }catch (Exception z){
+                    toConsole(1,  "Invalid debug level! Choose 0, 1, or 2 only.");
+                    debugLevel = 1;
+                }
+            }
         }
     }
 }
