@@ -1,8 +1,9 @@
 ﻿//TODO
 //Run check for day table clear so there's no double entries
 //Clean up redundant stuff (make a big function for everything)
-//
-
+//Insert date for day table
+//Insert heartbeat code
+//Create cache
 
 using System;
 using System.IO;
@@ -56,27 +57,18 @@ namespace PRoConEvents
                 this.goodMorning();
 
                 bool abortUpdate = false;
-                /*DateTime Now = DateTime.Now;
-                int nowMinutes = Now.Minute;
-                //workaround to get 24 hours, there's probably an easier way to do this
-                int nowHour = Convert.ToInt32(Now.ToString("H"));
-                nowMinutes = nowMinutes + (nowHour*60);*/
 
                 //Insert the latest interval
                 MySqlCommand query = new MySqlCommand("INSERT INTO " + dayTableName + " (min) VALUES ('" + playerCount + "')", this.confirmedConnection);
-                try { query.Connection.Open(); }
-                catch (Exception m)
+                if (testQueryCon(query))
                 {
-                    this.toConsole(1, "Couldn't open query connection! The last interval could not be saved.");
-                    this.toConsole(1, m.ToString());
-                    abortUpdate = true;
-                }
-                try { query.ExecuteNonQuery(); }
-                catch (Exception m)
-                {
-                    this.toConsole(1, "Couldn't parse query!");
-                    this.toConsole(1, m.ToString());
-                    abortUpdate = true;
+                    try { query.ExecuteNonQuery(); }
+                    catch (Exception m)
+                    {
+                        this.toConsole(1, "Couldn't parse query!");
+                        this.toConsole(1, m.ToString());
+                        abortUpdate = true;
+                    }
                 }
                 query.Connection.Close();
                 if (!abortUpdate)
@@ -91,7 +83,7 @@ namespace PRoConEvents
         {
             this.toConsole(2, "Trying to connect to " + mySqlHostname + ":" + mySqlPort + " with username " + mySqlUsername);
             this.firstConnection = new MySqlConnection("Server=" + mySqlHostname + ";" + "Port=" + mySqlPort + ";" + "Database=" + mySqlDatabase + ";" + "Uid=" + mySqlUsername + ";" + "Pwd=" + mySqlPassword + ";" + "Connection Timeout=5;");
-            try{ this.firstConnection.Open(); }
+            try { this.firstConnection.Open(); }
             catch (Exception e)
             {
                 this.toConsole(1, e.ToString());
@@ -123,17 +115,14 @@ namespace PRoConEvents
 
             int rowCount = 999;
             MySqlCommand query = new MySqlCommand("SELECT COUNT(*) FROM " + bigTableName + " WHERE date='" + dateNow + "'", this.confirmedConnection);
-            try{ query.Connection.Open(); }
-            catch (Exception e)
+            if (testQueryCon(query))
             {
-                this.toConsole(1, "Couldn't open query connection! The plugin will assume it is NOT a new day.");
-                this.toConsole(1, e.ToString());
-            }
-            try{ rowCount = int.Parse(query.ExecuteScalar().ToString()); }
-            catch (Exception e)
-            {
-                this.toConsole(1, "Couldn't parse query!");
-                this.toConsole(1, e.ToString());
+                try { rowCount = int.Parse(query.ExecuteScalar().ToString()); }
+                catch (Exception e)
+                {
+                    this.toConsole(1, "Couldn't parse query!");
+                    this.toConsole(1, e.ToString());
+                }
             }
             query.Connection.Close();
 
@@ -148,57 +137,26 @@ namespace PRoConEvents
                 //Adding up yesterday's minutes...
                 int minSum = 0;
                 query = new MySqlCommand("SELECT SUM(min) FROM " + dayTableName, this.confirmedConnection);
-                try{ query.Connection.Open(); }
-                catch (Exception e)
+                if (testQueryCon(query))
                 {
-                    this.toConsole(1, "Couldn't open query connection! Couldn't sum up yesterday!.");
-                    this.toConsole(1, e.ToString());
-                    abortUpdate = true;
-                }
-                try { minSum = int.Parse(query.ExecuteScalar().ToString()); }
-                catch (Exception e)
-                {
-                    this.toConsole(1, "Couldn't parse query!");
-                    this.toConsole(1, e.ToString());
-                    abortUpdate = true;
-                }
-                query.Connection.Close();
-                this.toConsole(1, "Yesterday's sum was " + minSum + " player minutes.");
-
-                if (!abortUpdate)
-                {
-                    //Update yesterday's minutes...
-                    query = new MySqlCommand("UPDATE " + bigTableName + " SET min=" + minSum + " WHERE date='" + dateYesterday + "'", this.confirmedConnection);
-                    try { query.Connection.Open(); }
-                    catch (Exception e)
-                    {
-                        this.toConsole(1, "Couldn't open query connection! Yesterday's big table entry was not updated.");
-                        this.toConsole(1, e.ToString());
-                        abortUpdate = true;
-                    }
-                    try { query.ExecuteNonQuery(); }
+                    try { minSum = int.Parse(query.ExecuteScalar().ToString()); }
                     catch (Exception e)
                     {
                         this.toConsole(1, "Couldn't parse query!");
                         this.toConsole(1, e.ToString());
                         abortUpdate = true;
                     }
-                    query.Connection.Close();
-                    
+                } else { abortUpdate = true; }
+                query.Connection.Close();
 
-                    if (!abortUpdate)
+                this.toConsole(2, "Yesterday's sum was " + minSum + " player minutes.");
+
+                if (!abortUpdate)
+                {
+                    //Update yesterday's minutes...
+                    query = new MySqlCommand("UPDATE " + bigTableName + " SET min=" + minSum + " WHERE date='" + dateYesterday + "'", this.confirmedConnection);
+                    if (testQueryCon(query))
                     {
-
-                        this.toConsole(2, "Updated yesterday's minutes!");
-                        //and finally, start a new day
-                        query = new MySqlCommand("INSERT INTO " + bigTableName + " (date) VALUES ('" + dateNow + "')", this.confirmedConnection);
-                        try { query.Connection.Open(); }
-                        catch (Exception e)
-                        {
-                            this.toConsole(1, "Couldn't open query connection! Big table does not have an entry for today!");
-                            this.toConsole(1, e.ToString());
-                            abortUpdate = true;
-                        }
                         try { query.ExecuteNonQuery(); }
                         catch (Exception e)
                         {
@@ -206,21 +164,17 @@ namespace PRoConEvents
                             this.toConsole(1, e.ToString());
                             abortUpdate = true;
                         }
-                        query.Connection.Close();
+                    }
+                    else { abortUpdate = true; }
+                    query.Connection.Close();
 
-                        if (!abortUpdate)
+                    if (!abortUpdate)
+                    {
+                        this.toConsole(2, "Updated yesterday's minutes!");
+                        //and finally, start a new day
+                        query = new MySqlCommand("INSERT INTO " + bigTableName + " (date) VALUES ('" + dateNow + "')", this.confirmedConnection);
+                        if (testQueryCon(query))
                         {
-                            this.toConsole(2, "New big table row inserted!");
-                            //clear the day table for a new day
-                            //and finally, start a new day
-                            query = new MySqlCommand("DELETE FROM " + dayTableName, this.confirmedConnection);
-                            try { query.Connection.Open(); }
-                            catch (Exception e)
-                            {
-                                this.toConsole(1, "Couldn't open query connection! Day Table NOT cleared!");
-                                this.toConsole(1, e.ToString());
-                                abortUpdate = true;
-                            }
                             try { query.ExecuteNonQuery(); }
                             catch (Exception e)
                             {
@@ -228,12 +182,32 @@ namespace PRoConEvents
                                 this.toConsole(1, e.ToString());
                                 abortUpdate = true;
                             }
+                        }
+                        else { abortUpdate = true; }
+                        query.Connection.Close();
+
+                        if (!abortUpdate)
+                        {
+                            this.toConsole(2, "New big table row inserted!");
+                            //clear the day table for a new day
+
+                            query = new MySqlCommand("DELETE FROM " + dayTableName, this.confirmedConnection);
+                            if (testQueryCon(query))
+                            {
+                                try { query.ExecuteNonQuery(); }
+                                catch (Exception e)
+                                {
+                                    this.toConsole(1, "Couldn't parse query!");
+                                    this.toConsole(1, e.ToString());
+                                    abortUpdate = true;
+                                }
+                            }
+                            else { abortUpdate = true; }
                             query.Connection.Close();
                             if (!abortUpdate)
                             {
                                 this.toConsole(2, "Day table reset!");
                                 //clear the day table for a new day
-
                             }
                         }
                     }
@@ -263,6 +237,19 @@ namespace PRoConEvents
             }
         }
 
+        public bool testQueryCon(MySqlCommand theQuery)
+        {
+            try { theQuery.Connection.Open(); }
+            catch (Exception e)
+            {
+                this.toConsole(1, "Couldn't open query connection!");
+                this.toConsole(1, e.ToString());
+                return false;
+            }
+            this.toConsole(2, "Connection OK!");
+            return true;
+        }
+
         //---------------------------------------------------
         // Attributes
         //---------------------------------------------------
@@ -273,7 +260,7 @@ namespace PRoConEvents
         }
         public string GetPluginVersion()
         {
-            return "0.6.3";
+            return "0.6.95";
         }
         public string GetPluginAuthor()
         {
@@ -309,6 +296,14 @@ namespace PRoConEvents
         {
             this.pluginEnabled = true;
             this.toConsole(1, "pureLog Server Edition Running");
+
+            DateTime rightNow = DateTime.Now;
+            String rightNowHour = rightNow.ToString("%H");
+            String rightNowMinutes = rightNow.ToString("%m");
+            this.toConsole(1, "The time is " + rightNowHour + ":" + rightNowMinutes);
+            int rightNowMinTotal = (Convert.ToInt32(rightNowHour)) * 60 + Convert.ToInt32(rightNowMinutes);
+            this.toConsole(1, "in minutes that means " + rightNowMinTotal);
+
             this.establishFirstConnection();
         }
 
@@ -386,10 +381,13 @@ namespace PRoConEvents
             else if (Regex.Match(strVariable, @"Debug Level").Success)
             {
                 debugLevelString = strValue;
-                try{
+                try
+                {
                     debugLevel = Int32.Parse(debugLevelString);
-                }catch (Exception z){
-                    toConsole(1,  "Invalid debug level! Choose 0, 1, or 2 only.");
+                }
+                catch (Exception z)
+                {
+                    toConsole(1, "Invalid debug level! Choose 0, 1, or 2 only.");
                     debugLevel = 1;
                 }
             }
