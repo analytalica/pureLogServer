@@ -14,6 +14,10 @@ using System.Collections.Generic;
 using System.Data;
 using System.Text.RegularExpressions;
 using MySql.Data.MySqlClient;
+using System.Web;
+using System.Net;
+using System.Diagnostics;
+using System.Net.Sockets;
 
 using PRoCon.Core;
 using PRoCon.Core.Plugin;
@@ -43,6 +47,15 @@ namespace PRoConEvents
         private String debugLevelString = "1";
         private int debugLevel = 1;
 
+        private int backupCache = 0;
+        private int backupRuns = 0;
+
+        private string heartbeatServerIp;
+        private int heartbeatServerPort;
+        private string heartbeatClientIdentifier;
+        private string sendHeartbeatsString = "0";
+        private int sendHeartbeats = 0;
+
         public pureLogServer()
         {
 
@@ -54,26 +67,60 @@ namespace PRoConEvents
             {
                 //this.toChat("pureLog Server Tracking " + playerCount + " players online.");
                 this.toConsole(2, "pureLog Server Tracking " + playerCount + " players online.");
-                this.goodMorning();
-
                 bool abortUpdate = false;
 
-                //Insert the latest interval
-                MySqlCommand query = new MySqlCommand("INSERT INTO " + dayTableName + " (min) VALUES ('" + playerCount + "')", this.confirmedConnection);
-                if (testQueryCon(query))
+                //what time is it?
+                DateTime rightNow = DateTime.Now;
+                String rightNowHour = rightNow.ToString("%H");
+                String rightNowMinutes = rightNow.ToString("%m");
+                int rightNowMinTotal = (Convert.ToInt32(rightNowHour)) * 60 + Convert.ToInt32(rightNowMinutes);
+                int totalPlayerCount = playerCount + backupCache;
+
+                if (backupRuns % 5 == 0)
                 {
-                    try { query.ExecuteNonQuery(); }
-                    catch (Exception m)
+                    //Check for a new day
+                    this.goodMorning();
+                    //Insert the latest interval, plus any backup cache
+                    
+                    MySqlCommand query = new MySqlCommand("INSERT INTO " + dayTableName + " (min, time) VALUES ('" + totalPlayerCount + "','" + rightNowMinTotal + "')", this.confirmedConnection);
+                    if (testQueryCon(query))
                     {
-                        this.toConsole(1, "Couldn't parse query!");
-                        this.toConsole(1, m.ToString());
-                        abortUpdate = true;
+                        try { query.ExecuteNonQuery(); }
+                        catch (Exception m)
+                        {
+                            this.toConsole(1, "Couldn't parse query!");
+                            this.toConsole(1, m.ToString());
+                            abortUpdate = true;
+                        }
                     }
+                    query.Connection.Close();
                 }
-                query.Connection.Close();
+                else
+                {
+                    toConsole(2, "Skipping this day table insertion...");
+                    toConsole(2, "Current backup cache value: " + this.backupCache + " // The last " + this.backupRuns + " day table insertions were skipped.");
+                    this.backupCache += playerCount;
+                    this.backupRuns++;
+                }
+                
+                //Was the insertion a success?
                 if (!abortUpdate)
                 {
-                    toConsole(2, "Added an interval worth " + playerCount);
+                    toConsole(2, "Added an interval worth " + totalPlayerCount + " for timestamp " + rightNowMinTotal);
+                    //Clear out any remaining cache.
+                    this.backupRuns = 0;
+                    this.backupCache = 0;
+                    //Ping!
+                    SendHeartbeats();
+                }
+                else
+                {
+                    toConsole(1, "There's a connection problem. I'll try again in five minutes and put the next five intervals into the backup cache.");
+                    //Add missing minutes to cache.
+                    this.backupCache += playerCount;
+                    //Consider this run skipped.
+                    this.backupRuns++;
+                    toConsole(2, "Current backup cache value: " + this.backupCache + " // The last " + this.backupRuns + " day table insertions were skipped.");
                 }
             }
         }
@@ -103,7 +150,8 @@ namespace PRoConEvents
             }
             else
             {
-                this.toConsole(1, "Could not establish an initial connection. Check the plugin settings and restart the plugin and/or Procon layer.");
+                this.toConsole(1, "Could not establish an initial connection. Try turning off the plugin, check the plugin settings, restart the Procon layer, and then enable the plugin once more.");
+                this.toConsole(1, "Sometimes Procon will flat out refuse to allow pureLog to connect to anything even with all credentials okay (usually after any sort of legitamite connection error). The process above fixes this.");
             }
         }
 
@@ -142,7 +190,7 @@ namespace PRoConEvents
                     try { minSum = int.Parse(query.ExecuteScalar().ToString()); }
                     catch (Exception e)
                     {
-                        this.toConsole(1, "Couldn't parse query!");
+                        this.toConsole(1, "Couldn't parse query! NOTE: If this is the first time running this plugin, or haven't run the plugin in a while, ignore this error. It should go away in the next minute.");
                         this.toConsole(1, e.ToString());
                         abortUpdate = true;
                     }
@@ -219,6 +267,48 @@ namespace PRoConEvents
             }
         }
 
+        public void SendHeartbeats()
+        {
+            try
+            {
+                if (this.pluginEnabled && this.sendHeartbeats > 0)
+                {
+                    IPEndPoint serverEndpoint = new IPEndPoint(IPAddress.Parse(this.heartbeatServerIp),
+                                                        this.heartbeatServerPort);
+                    Socket socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+                    byte[] clientId = Encoding.ASCII.GetBytes(this.heartbeatClientIdentifier);
+
+                    try
+                    {
+                        socket.Connect(serverEndpoint);
+                    }
+                    catch (Exception exc)
+                    {
+                        this.toConsole(1, "Heartbeat Exception! " + exc.Message);
+                    }
+                    try
+                    {
+                        byte[] numBytes = BitConverter.GetBytes(clientId.Length);
+                        socket.Send(numBytes);
+                        socket.Send(clientId);
+                    }
+                    catch (Exception exc)
+                    {
+                        this.toConsole(1, "Heartbeat Exception! " + exc.Message);
+                    }
+                    finally
+                    {
+                        socket.Shutdown(SocketShutdown.Both);
+                        socket.Close();
+                    }
+                }
+            }
+            catch (SocketException)
+            {
+            }
+        }
+    
+
         //---------------------------------------------------
         //Helper functions
         //---------------------------------------------------
@@ -244,6 +334,7 @@ namespace PRoConEvents
             {
                 this.toConsole(1, "Couldn't open query connection!");
                 this.toConsole(1, e.ToString());
+                theQuery.Connection.Close();
                 return false;
             }
             this.toConsole(2, "Connection OK!");
@@ -260,7 +351,7 @@ namespace PRoConEvents
         }
         public string GetPluginVersion()
         {
-            return "0.6.95";
+            return "0.9.7";
         }
         public string GetPluginAuthor()
         {
@@ -272,20 +363,87 @@ namespace PRoConEvents
         }
         public string GetPluginDescription()
         {
-            return @"<p>Updates a MySQL database with daily player count logging. Make sure the MySQL server is accepting remote connections.</p>
-                    <p><b>Initial Setup: </b><br/>Create a table in the database (Big Table) with three columns: id (INT), date (VARCHAR 255), and min (INT). Set id to auto-increment.<br/>
-                    Make another table in the database (Day Table) with three columns: id (INT), time (VARCHAR 255), and min (INT). Set id to auto-increment.<br/>
-                    Fill out ALL plugin settings before starting the plugin. Use an IP address for hostname and. The default port is 3306.<br/>
-                    The debug levels are as follows: 0 suppresses ALL messages (not recommended), 1 shows important messages only (recommended), and 2 shows ALL messages (useful for step by step debugging).</p>
-                    <p><b>Troubleshooting: </b><br/>Currently there is a bug where the plugin fails to connect if it was running before a Procon layer restart. To get it working again, disable the plugin, restart the Procon layer, and enable the plugin.
-                    <br/>The IP address that Procon uses to access the MySQL server is different from the IP of the layer itself. If a remote connection can't be established, try using more wildcards in the accepted connections (do %.%.%.% to test).</p>
-                    <p><b>Fallbacks: </b><br/>If at any step in the table updating process the connection fails, the plugin will continue adding minutes to the most recent day. A new day for the plugin only begins when the connection is successful.
-                    <br/>If there is no entry for yesterday, the plugin will assume this is a first run and drop whatever it had initially. A future version of this plugin will repair missing calendar days.</p>
+            return @"<p>Updates a MySQL database with daily player count logging, and
+records alog of the total amount of minutes players are
+spending in-game on a server per day. In the case of a connection
+failure, a local backup cache is created to prevent data loss.</p>
+<p>This plugin was developed by analytalica and is currently a
+PURE Battlefield exclusive. The heartbeat monitor has <b>not</b> been tested yet.</p>
+<p><big><b>Initial Setup: </b></big><br>
+</p>
+<ol>
+  <li>Create a table in the database (Big Table) with three
+columns: id (INT), date (VARCHAR 255), and min (INT). Set id to
+auto-increment.</li>
+  <li>Make another table in the database (Day Table) with three
+columns: id (INT), time (VARCHAR 255), and min (INT). Set id to
+auto-increment.</li>
+  <li>Fill out ALL plugin settings before starting the plugin.
+Use an IP address for the hostname. The default port for remote MySQL
+connections is 3306.</li>
+</ol>
+<p><b>Steps 1 and 2
+can be accomplished using the default MySQL setup commands, which can
+be found below.</b> The debug levels are as follows: 0
+suppresses ALL messages (not recommended), 1 shows important messages
+only (recommended), and 2 shows ALL messages (useful for step by step
+debugging).</p>
+<p><big><b>Default MySQL Setup Commands: </b></big><br>
+</p>
+<ul>
+  <li>CREATE TABLE bigtable(id int NOT NULL AUTO_INCREMENT, date
+varchar(255), min int(11), PRIMARY KEY (id));
+  </li>
+  <li>CREATE TABLE daytable(id int NOT NULL AUTO_INCREMENT, time
+varchar(255), min int(11), PRIMARY KEY (id));
+  </li>
+</ul>
+<p>If you choose to run the commands above for the initial setup,
+in the plugin settings, set Big Table name to 'bigtable' and Day Table
+name to 'daytable'.</p>
+<p><big><b>Understanding
+the Table Structure:</b></big></p>
+<p>Every row in the Big Table stands for a different day, as
+indicated by the timestamp found in the date column. The Big Table's
+min column stores the total amount of minutes players spent in game
+that day. On a 64-player server, there is a maximum of 60*24*64 = 92160
+in-game minutes possible per day.</p>
+<p>Every row in the Day Table stands for a different interval
+(typically polled every minute), as indicated by the timestamp found in
+the time column. The Day Table's min column stores the amount of
+players recorded during that time interval. At the beginning of each
+new day, the total sum of all the intervals is inserted into the Big
+Table as an entry for the previous day, and then the Day Table is reset.</p>
+<p><big><b>Troubleshooting: </b></big><br>
+</p>
+<ul>
+  <li>Currently there is a bug where the plugin fails to connect
+if it was running before a Procon layer restart. <b>To get it working
+again, disable the plugin, restart the Procon layer, and enable the
+plugin.</b>
+  </li>
+  <li>The IP address that Procon uses to access the MySQL server
+is different from the IP of the layer itself. If a remote connection
+can't be established, try using more wildcards in the accepted
+connections (do %.%.%.% to test).</li>
+</ul>
+<p><big><b>Fallbacks: </b></big><br>
+</p>
+<ul>
+  <li>If at any step in the table updating process the connection
+fails, the plugin will continue adding minutes to the most recent day.
+A new day for the plugin only begins when the connection is successful.
+  </li>
+  <li>On the case of a MySQL connection failure, the plugin will
+skip the next five insertion attempts to avoid overloading PRoCon.
+Missing intervals will be summed up into one when a connection is
+re-established.</li>
+</ul>
                     ";
         }
 
         //---------------------------------------------------
-        // Config (totally not a ripoff)
+        // Config (totally not a ripoff of some other plugins)
         //---------------------------------------------------
         public void OnPluginLoaded(string strHostName, string strPort, string strPRoConVersion)
         {
@@ -296,14 +454,6 @@ namespace PRoConEvents
         {
             this.pluginEnabled = true;
             this.toConsole(1, "pureLog Server Edition Running");
-
-            DateTime rightNow = DateTime.Now;
-            String rightNowHour = rightNow.ToString("%H");
-            String rightNowMinutes = rightNow.ToString("%m");
-            this.toConsole(1, "The time is " + rightNowHour + ":" + rightNowMinutes);
-            int rightNowMinTotal = (Convert.ToInt32(rightNowHour)) * 60 + Convert.ToInt32(rightNowMinutes);
-            this.toConsole(1, "in minutes that means " + rightNowMinTotal);
-
             this.establishFirstConnection();
         }
 
@@ -331,6 +481,10 @@ namespace PRoConEvents
             lstReturn.Add(new CPluginVariable("Table Names|Big Table", typeof(string), bigTableName));
             lstReturn.Add(new CPluginVariable("Table Names|Day Table", typeof(string), dayTableName));
             lstReturn.Add(new CPluginVariable("Other|Debug Level", typeof(string), debugLevelString));
+            lstReturn.Add(new CPluginVariable("Other|Heartbeat Server Port", typeof(string), heartbeatServerPort));
+            lstReturn.Add(new CPluginVariable("Other|Heartbeat Server IP", typeof(string), heartbeatServerIp));
+            lstReturn.Add(new CPluginVariable("Other|Heartbeat Client Identifier", typeof(string), heartbeatClientIdentifier));
+            lstReturn.Add(new CPluginVariable("Other|Send heartbeats?", typeof(string), sendHeartbeatsString));
             return lstReturn;
         }
 
@@ -389,6 +543,33 @@ namespace PRoConEvents
                 {
                     toConsole(1, "Invalid debug level! Choose 0, 1, or 2 only.");
                     debugLevel = 1;
+                    debugLevelString = "1";
+                }
+            }
+            else if (strVariable == "Heartbeat Server Port")
+            {
+                Int32.TryParse(strValue, out this.heartbeatServerPort);
+            }
+            else if (strVariable == "Heartbeat Server IP")
+            {
+                this.heartbeatServerIp = strValue;
+            }
+            else if (strVariable == "Heartbeat Client Identifier")
+            {
+                this.heartbeatClientIdentifier = strValue;
+            }
+            else if (strVariable == "Send heartbeats?")
+            {
+                this.sendHeartbeatsString = strValue;
+                try
+                {
+                    sendHeartbeats = Int32.Parse(sendHeartbeatsString);
+                }
+                catch (Exception z)
+                {
+                    toConsole(1, "Invalid heartbeat toggle! Choose 0 (false) or 1 (true) only.");
+                    sendHeartbeats = 0;
+                    sendHeartbeatsString = "0";
                 }
             }
         }
