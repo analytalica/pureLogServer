@@ -351,7 +351,7 @@ namespace PRoConEvents
         }
         public string GetPluginVersion()
         {
-            return "0.9.7";
+            return "1.0.0";
         }
         public string GetPluginAuthor()
         {
@@ -380,7 +380,7 @@ columns: id (INT), time (VARCHAR 255), and min (INT). Set id to
 auto-increment.</li>
   <li>Fill out ALL plugin settings before starting the plugin.
 Use an IP address for the hostname. The default port for remote MySQL
-connections is 3306.</li>
+connections is 3306 (on PURE servers, use 3603).</li>
 </ol>
 <p><b>Steps 1 and 2
 can be accomplished using the default MySQL setup commands, which can
@@ -509,7 +509,7 @@ re-established.</li>
                 }
                 else
                 {
-                    this.ExecuteCommand("procon.protected.pluginconsole.write", "Invalid SQL Port Value");
+                    this.ExecuteCommand("procon.protected.pluginconsole.write", "Invalid SQL Port Value.");
                 }
             }
             else if (Regex.Match(strVariable, @"MySQL Database").Success)
