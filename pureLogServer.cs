@@ -39,7 +39,7 @@ namespace PRoConEvents
         private String mySqlPassword;
         private int intervalLength = 60000;
 
-        private MySqlConnection firstConnection;
+        //private MySqlConnection firstConnection;
         private MySqlConnection confirmedConnection;
         private bool SqlConnected = true;
         private String bigTableName;
@@ -129,17 +129,18 @@ namespace PRoConEvents
         public void establishFirstConnection()
         {
             this.toConsole(2, "Trying to connect to " + mySqlHostname + ":" + mySqlPort + " with username " + mySqlUsername);
-            this.firstConnection = new MySqlConnection("Server=" + mySqlHostname + ";" + "Port=" + mySqlPort + ";" + "Database=" + mySqlDatabase + ";" + "Uid=" + mySqlUsername + ";" + "Pwd=" + mySqlPassword + ";" + "Connection Timeout=5;");
-            try { this.firstConnection.Open(); }
+            MySqlConnection firstConnection = new MySqlConnection("Server=" + mySqlHostname + ";" + "Port=" + mySqlPort + ";" + "Database=" + mySqlDatabase + ";" + "Uid=" + mySqlUsername + ";" + "Pwd=" + mySqlPassword + ";" + "Connection Timeout=5;");
+            try { firstConnection.Open(); }
             catch (Exception e)
             {
+                this.toConsole(1, "Initial connection error!");
                 this.toConsole(1, e.ToString());
                 this.SqlConnected = false;
             }
             //Get ready to rock!
             if (SqlConnected)
             {
-                this.firstConnection.Close();
+                firstConnection.Close();
                 this.toConsole(1, "Connection established with " + mySqlHostname + "!");
                 confirmedConnection = firstConnection;
                 this.updateTimer = new Timer();
@@ -351,7 +352,7 @@ namespace PRoConEvents
         }
         public string GetPluginVersion()
         {
-            return "1.0.0";
+            return "1.0.2";
         }
         public string GetPluginAuthor()
         {
