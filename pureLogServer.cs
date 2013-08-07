@@ -1,11 +1,4 @@
-﻿//TODO
-//Run check for day table clear so there's no double entries
-//Clean up redundant stuff (make a big function for everything)
-//Insert date for day table
-//Insert heartbeat code
-//Create cache
-
-using System;
+﻿using System;
 using System.IO;
 using System.Timers;
 using System.Text;
@@ -29,9 +22,12 @@ namespace PRoConEvents
     public class pureLogServer : PRoConPluginAPI, IPRoConPluginInterface
     {
 
-        private bool pluginEnabled = true;
+        private int pluginEnabled = 0;
+        //private String pluginEnabledString = "0";
+
         private int playerCount;
         private Timer updateTimer;
+        private Timer initialTimer;
         private String mySqlHostname;
         private String mySqlPort;
         private String mySqlDatabase;
@@ -41,7 +37,7 @@ namespace PRoConEvents
 
         //private MySqlConnection firstConnection;
         private MySqlConnection confirmedConnection;
-        private bool SqlConnected = true;
+        //private bool SqlConnected = true;
         private String bigTableName;
         private String dayTableName;
         private String debugLevelString = "1";
@@ -63,7 +59,7 @@ namespace PRoConEvents
 
         public void output(object source, ElapsedEventArgs e)
         {
-            if (pluginEnabled)
+            if (pluginEnabled > 0)
             {
                 //this.toChat("pureLog Server Tracking " + playerCount + " players online.");
                 this.toConsole(2, "pureLog Server Tracking " + playerCount + " players online.");
@@ -126,22 +122,25 @@ namespace PRoConEvents
         }
 
         //The first thing the plugin does.
-        public void establishFirstConnection()
+        public void establishFirstConnection(object source, ElapsedEventArgs e)
         {
+            bool SqlConnected = true;
             this.toConsole(2, "Trying to connect to " + mySqlHostname + ":" + mySqlPort + " with username " + mySqlUsername);
             MySqlConnection firstConnection = new MySqlConnection("Server=" + mySqlHostname + ";" + "Port=" + mySqlPort + ";" + "Database=" + mySqlDatabase + ";" + "Uid=" + mySqlUsername + ";" + "Pwd=" + mySqlPassword + ";" + "Connection Timeout=5;");
             try { firstConnection.Open(); }
-            catch (Exception e)
+            catch (Exception z)
             {
                 this.toConsole(1, "Initial connection error!");
-                this.toConsole(1, e.ToString());
-                this.SqlConnected = false;
+                this.toConsole(1, z.ToString());
+                SqlConnected = false;
             }
             //Get ready to rock!
             if (SqlConnected)
             {
                 firstConnection.Close();
                 this.toConsole(1, "Connection established with " + mySqlHostname + "!");
+                this.toConsole(2, "Stopping connection retry attempts timer...");
+                this.initialTimer.Stop();
                 confirmedConnection = firstConnection;
                 this.updateTimer = new Timer();
                 this.updateTimer.Elapsed += new ElapsedEventHandler(this.output);
@@ -151,8 +150,8 @@ namespace PRoConEvents
             }
             else
             {
-                this.toConsole(1, "Could not establish an initial connection. Try turning off the plugin, check the plugin settings, restart the Procon layer, and then enable the plugin once more.");
-                this.toConsole(1, "Sometimes Procon will flat out refuse to allow pureLog to connect to anything even with all credentials okay (usually after any sort of legitamite connection error). The process above fixes this.");
+                this.toConsole(1, "Could not establish an initial connection. I'll try again in a minute.");
+                this.toConsole(1, "The restart/restart/restart connection fix should no longer be necessary as of version 1.1.0.");
             }
         }
 
@@ -272,7 +271,7 @@ namespace PRoConEvents
         {
             try
             {
-                if (this.pluginEnabled && this.sendHeartbeats > 0)
+                if (this.pluginEnabled > 0 && this.sendHeartbeats > 0)
                 {
                     IPEndPoint serverEndpoint = new IPEndPoint(IPAddress.Parse(this.heartbeatServerIp),
                                                         this.heartbeatServerPort);
@@ -352,7 +351,7 @@ namespace PRoConEvents
         }
         public string GetPluginVersion()
         {
-            return "1.0.2";
+            return "1.2.0";
         }
         public string GetPluginAuthor()
         {
@@ -364,13 +363,24 @@ namespace PRoConEvents
         }
         public string GetPluginDescription()
         {
-            return @"<p>Updates a MySQL database with daily player count logging, and
-records alog of the total amount of minutes players are
+            return @"<p>Updates a MySQL database with daily player count logging,
+andrecords alog of the total amount of minutes players are
 spending in-game on a server per day. In the case of a connection
 failure, a local backup cache is created to prevent data loss.</p>
 <p>This plugin was developed by analytalica and is currently a
-PURE Battlefield exclusive. The heartbeat monitor has <b>not</b> been tested yet.</p>
-<p><big><b>Initial Setup: </b></big><br>
+PURE Battlefield exclusive. The heartbeat monitor has <b>not</b>
+been tested yet, though as of v1.2.0, it is no longer necessary and
+will be removed in the next major revision.</p>
+<p><big><b>What's New in 1.2?</b></big></p>
+<p>Bugfixes, bugfixes, bugfixes! The plugin is now <b>fully capable</b> of
+recovering after a Procon crash or forced layer restart, and <b>no longer needs to be actively
+maintained!</b> There will be a minute delay when the plugin
+starts to give time for Procon to finish initializing.If an initial
+connection can't be established, the plugin will try
+again once every minute until the plugin is disabled. Setup
+instructions have also been expanded with further details.</p>
+<p>And hello Draeger!</p>
+<p><big><b>Initial Setup:</b></big><br>
 </p>
 <ol>
   <li>Create a table in the database (Big Table) with three
@@ -379,17 +389,30 @@ auto-increment.</li>
   <li>Make another table in the database (Day Table) with three
 columns: id (INT), time (VARCHAR 255), and min (INT). Set id to
 auto-increment.</li>
-  <li>Fill out ALL plugin settings before starting the plugin.
-Use an IP address for the hostname. The default port for remote MySQL
+  <li>Fill out ALL plugin settings before starting the plugin.</li>
+  <ol>
+    <li>Use an IP address for the hostname. </li>
+    <li>The default port for remote MySQL
 connections is 3306 (on PURE servers, use 3603).</li>
+    <li>Set the database you want this plugin to connect to.
+Multiple databases will be needed for multiple servers and plugins.</li>
+    <li>Provide a username and password combination with the
+permissions (SELECT, INSERT, UPDATE, DELETE) necessary to access that
+database.</li>
+    <li>The debug levels are as follows: 0
+suppresses ALL messages (not recommended), 1 shows important messages
+only (recommended), and 2 shows ALL messages (useful for step by step
+debugging).</li>
+    <li>Set the table names to the same names chosen in steps 1
+and 2.</li>
+  </ol>
+  <li>The heartbeat monitor settings can be left blank if the
+'Send heartbeats?' option is set to 0.<br>
+  </li>
 </ol>
 <p><b>Steps 1 and 2
 can be accomplished using the default MySQL setup commands, which can
-be found below.</b> The debug levels are as follows: 0
-suppresses ALL messages (not recommended), 1 shows important messages
-only (recommended), and 2 shows ALL messages (useful for step by step
-debugging).</p>
-<p><big><b>Default MySQL Setup Commands: </b></big><br>
+be found below.</b> <br>
 </p>
 <ul>
   <li>CREATE TABLE bigtable(id int NOT NULL AUTO_INCREMENT, date
@@ -418,11 +441,6 @@ Table as an entry for the previous day, and then the Day Table is reset.</p>
 <p><big><b>Troubleshooting: </b></big><br>
 </p>
 <ul>
-  <li>Currently there is a bug where the plugin fails to connect
-if it was running before a Procon layer restart. <b>To get it working
-again, disable the plugin, restart the Procon layer, and enable the
-plugin.</b>
-  </li>
   <li>The IP address that Procon uses to access the MySQL server
 is different from the IP of the layer itself. If a remote connection
 can't be established, try using more wildcards in the accepted
@@ -439,7 +457,11 @@ A new day for the plugin only begins when the connection is successful.
 skip the next five insertion attempts to avoid overloading PRoCon.
 Missing intervals will be summed up into one when a connection is
 re-established.</li>
+  <li>If an initial connection can't be established, the plugin
+will try again once every minute. All error messages will be shown in
+the console output with debug level set to 1.</li>
 </ul>
+
                     ";
         }
 
@@ -448,22 +470,34 @@ re-established.</li>
         //---------------------------------------------------
         public void OnPluginLoaded(string strHostName, string strPort, string strPRoConVersion)
         {
-            this.RegisterEvents(this.GetType().Name, "OnPluginLoaded", "OnServerInfo");
+            this.RegisterEvents(this.GetType().Name, "OnServerInfo");
+            //this.RegisterEvents(this.GetType().Name, "OnPluginLoaded", "OnServerInfo");
+            this.ExecuteCommand("procon.protected.pluginconsole.write", "pureLog Server Edition Loaded!");
         }
 
         public void OnPluginEnable()
         {
-            this.pluginEnabled = true;
-            this.toConsole(1, "pureLog Server Edition Running");
-            this.establishFirstConnection();
+            this.pluginEnabled = 1;
+            this.toConsole(1, "pureLog Server Edition Running!");
+            this.toConsole(2, "The plugin will try and connect once every minute. Please wait...");
+
+            //Delay the first connection by a minute.
+            this.initialTimer = new Timer();
+            this.initialTimer.Elapsed += new ElapsedEventHandler(this.establishFirstConnection);
+            this.initialTimer.Interval = 60000;
+            this.initialTimer.Start();
+
         }
 
         public void OnPluginDisable()
         {
-            this.pluginEnabled = false;
+            this.pluginEnabled = 0;
             this.ExecuteCommand("procon.protected.tasks.remove", "pureLogServer");
+            this.toConsole(2, "Stopping connection retry attempts timer...");
+            this.initialTimer.Stop();
+            this.toConsole(2, "Stopping update timer...");
             this.updateTimer.Stop();
-            this.toConsole(1, "pureLog Server Edition Closed");
+            this.toConsole(1, "pureLog Server Edition Closed.");
         }
 
         public override void OnServerInfo(CServerInfo csiServerInfo)
