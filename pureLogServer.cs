@@ -21,10 +21,8 @@ namespace PRoConEvents
 {
     public class pureLogServer : PRoConPluginAPI, IPRoConPluginInterface
     {
-
         private int pluginEnabled = 0;
         //private String pluginEnabledString = "0";
-
         private int playerCount;
         private Timer updateTimer;
         private Timer initialTimer;
@@ -40,17 +38,17 @@ namespace PRoConEvents
         //private bool SqlConnected = true;
         private String bigTableName;
         private String dayTableName;
+
         private String debugLevelString = "1";
         private int debugLevel = 1;
-
         private int backupCache = 0;
         private int backupRuns = 0;
-
-        private string heartbeatServerIp;
-        private int heartbeatServerPort;
-        private string heartbeatClientIdentifier;
-        private string sendHeartbeatsString = "0";
-        private int sendHeartbeats = 0;
+        //pureLog 2
+        private String adminTableName;
+        private String seederTableName;
+        private String adminListString;
+        private String seederListString;
+        private List<String> playerNameList;
 
         public pureLogServer()
         {
@@ -106,8 +104,6 @@ namespace PRoConEvents
                     //Clear out any remaining cache.
                     this.backupRuns = 0;
                     this.backupCache = 0;
-                    //Ping!
-                    SendHeartbeats();
                 }
                 else
                 {
@@ -267,48 +263,6 @@ namespace PRoConEvents
             }
         }
 
-        public void SendHeartbeats()
-        {
-            try
-            {
-                if (this.pluginEnabled > 0 && this.sendHeartbeats > 0)
-                {
-                    IPEndPoint serverEndpoint = new IPEndPoint(IPAddress.Parse(this.heartbeatServerIp),
-                                                        this.heartbeatServerPort);
-                    Socket socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-                    byte[] clientId = Encoding.ASCII.GetBytes(this.heartbeatClientIdentifier);
-
-                    try
-                    {
-                        socket.Connect(serverEndpoint);
-                    }
-                    catch (Exception exc)
-                    {
-                        this.toConsole(1, "Heartbeat Exception! " + exc.Message);
-                    }
-                    try
-                    {
-                        byte[] numBytes = BitConverter.GetBytes(clientId.Length);
-                        socket.Send(numBytes);
-                        socket.Send(clientId);
-                    }
-                    catch (Exception exc)
-                    {
-                        this.toConsole(1, "Heartbeat Exception! " + exc.Message);
-                    }
-                    finally
-                    {
-                        socket.Shutdown(SocketShutdown.Both);
-                        socket.Close();
-                    }
-                }
-            }
-            catch (SocketException)
-            {
-            }
-        }
-    
-
         //---------------------------------------------------
         //Helper functions
         //---------------------------------------------------
@@ -351,7 +305,7 @@ namespace PRoConEvents
         }
         public string GetPluginVersion()
         {
-            return "1.2.0";
+            return "1.2.7";
         }
         public string GetPluginAuthor()
         {
@@ -363,23 +317,21 @@ namespace PRoConEvents
         }
         public string GetPluginDescription()
         {
-            return @"<p>Updates a MySQL database with daily player count logging,
-andrecords alog of the total amount of minutes players are
-spending in-game on a server per day. In the case of a connection
-failure, a local backup cache is created to prevent data loss.</p>
+            return @"<p><b>This version of
+pureLog is currently in development.</b> Not all features may
+be available or function properly.<br>
+</p>
+<p>pureLog is a MySQL database driven game-time analytics plugin
+for PRoCon. Its primary function is to measure daily server popularity
+by logging the collective total amount of time spent in-game by
+players, designated as player-minutes. At the same time, pureLog is
+capable of tracking the player-minutes of select users and can
+differentiate between administrators and seeders if necessary.<br>
+</p>
 <p>This plugin was developed by analytalica and is currently a
-PURE Battlefield exclusive. The heartbeat monitor has <b>not</b>
-been tested yet, though as of v1.2.0, it is no longer necessary and
-will be removed in the next major revision.</p>
-<p><big><b>What's New in 1.2?</b></big></p>
-<p>Bugfixes, bugfixes, bugfixes! The plugin is now <b>fully capable</b> of
-recovering after a Procon crash or forced layer restart, and <b>no longer needs to be actively
-maintained!</b> There will be a minute delay when the plugin
-starts to give time for Procon to finish initializing.If an initial
-connection can't be established, the plugin will try
-again once every minute until the plugin is disabled. Setup
-instructions have also been expanded with further details.</p>
-<p>And hello Draeger!</p>
+PURE Battlefield exclusive.</p>
+<p><big><b>What's New in 2.0?</b></big></p>
+Awesome
 <p><big><b>Initial Setup:</b></big><br>
 </p>
 <ol>
@@ -389,26 +341,22 @@ auto-increment.</li>
   <li>Make another table in the database (Day Table) with three
 columns: id (INT), time (VARCHAR 255), and min (INT). Set id to
 auto-increment.</li>
-  <li>Fill out ALL plugin settings before starting the plugin.</li>
-  <ol>
-    <li>Use an IP address for the hostname. </li>
-    <li>The default port for remote MySQL
+  <li>Use an IP address for the hostname. </li>
+  <li>The default port for remote MySQL
 connections is 3306 (on PURE servers, use 3603).</li>
-    <li>Set the database you want this plugin to connect to.
+  <li>Set the database you want this plugin to connect to.
 Multiple databases will be needed for multiple servers and plugins.</li>
-    <li>Provide a username and password combination with the
+  <li>Provide a username and password combination with the
 permissions (SELECT, INSERT, UPDATE, DELETE) necessary to access that
 database.</li>
-    <li>The debug levels are as follows: 0
+  <li>The debug levels are as follows: 0
 suppresses ALL messages (not recommended), 1 shows important messages
 only (recommended), and 2 shows ALL messages (useful for step by step
 debugging).</li>
-    <li>Set the table names to the same names chosen in steps 1
+  <li>Set the table names to the same names chosen in steps 1
 and 2.</li>
+  <ol>
   </ol>
-  <li>The heartbeat monitor settings can be left blank if the
-'Send heartbeats?' option is set to 0.<br>
-  </li>
 </ol>
 <p><b>Steps 1 and 2
 can be accomplished using the default MySQL setup commands, which can
@@ -462,6 +410,7 @@ will try again once every minute. All error messages will be shown in
 the console output with debug level set to 1.</li>
 </ul>
 
+
                     ";
         }
 
@@ -470,7 +419,7 @@ the console output with debug level set to 1.</li>
         //---------------------------------------------------
         public void OnPluginLoaded(string strHostName, string strPort, string strPRoConVersion)
         {
-            this.RegisterEvents(this.GetType().Name, "OnServerInfo");
+            this.RegisterEvents(this.GetType().Name, "OnServerInfo", "OnListPlayers");
             //this.RegisterEvents(this.GetType().Name, "OnPluginLoaded", "OnServerInfo");
             this.ExecuteCommand("procon.protected.pluginconsole.write", "pureLog Server Edition Loaded!");
         }
@@ -505,6 +454,16 @@ the console output with debug level set to 1.</li>
             this.playerCount = csiServerInfo.PlayerCount;
         }
 
+        public override void OnListPlayers(List<CPlayerInfo> players, CPlayerSubset subset)
+        {
+            toConsole(2, "OnListPlayers");
+            foreach (CPlayerInfo player in players)
+            {
+                toConsole(2, "Printing names");
+                toConsole(2, player.SoldierName);
+            }
+        }
+
         public List<CPluginVariable> GetDisplayPluginVariables()
         {
             List<CPluginVariable> lstReturn = new List<CPluginVariable>();
@@ -515,11 +474,11 @@ the console output with debug level set to 1.</li>
             lstReturn.Add(new CPluginVariable("MySQL Settings|MySQL Password", typeof(string), mySqlPassword));
             lstReturn.Add(new CPluginVariable("Table Names|Big Table", typeof(string), bigTableName));
             lstReturn.Add(new CPluginVariable("Table Names|Day Table", typeof(string), dayTableName));
+            lstReturn.Add(new CPluginVariable("Table Names|Admin Table", typeof(string), adminTableName));
+            lstReturn.Add(new CPluginVariable("Table Names|Seeder Table", typeof(string), seederTableName));
+            lstReturn.Add(new CPluginVariable("Tracked Players|Admin List", typeof(string), adminListString));
+            lstReturn.Add(new CPluginVariable("Tracked Players|Seeder List", typeof(string), seederListString));
             lstReturn.Add(new CPluginVariable("Other|Debug Level", typeof(string), debugLevelString));
-            lstReturn.Add(new CPluginVariable("Other|Heartbeat Server Port", typeof(string), heartbeatServerPort));
-            lstReturn.Add(new CPluginVariable("Other|Heartbeat Server IP", typeof(string), heartbeatServerIp));
-            lstReturn.Add(new CPluginVariable("Other|Heartbeat Client Identifier", typeof(string), heartbeatClientIdentifier));
-            lstReturn.Add(new CPluginVariable("Other|Send heartbeats?", typeof(string), sendHeartbeatsString));
             return lstReturn;
         }
 
@@ -567,6 +526,22 @@ the console output with debug level set to 1.</li>
             {
                 dayTableName = strValue;
             }
+            else if (Regex.Match(strVariable, @"Admin Table").Success)
+            {
+                adminTableName = strValue;
+            }
+            else if (Regex.Match(strVariable, @"Seeder Table").Success)
+            {
+                seederTableName = strValue;
+            }
+            else if (Regex.Match(strVariable, @"Admin List").Success)
+            {
+                adminListString = strValue;
+            }
+            else if (Regex.Match(strVariable, @"Seeder List").Success)
+            {
+                seederListString = strValue;
+            }
             else if (Regex.Match(strVariable, @"Debug Level").Success)
             {
                 debugLevelString = strValue;
@@ -579,32 +554,6 @@ the console output with debug level set to 1.</li>
                     toConsole(1, "Invalid debug level! Choose 0, 1, or 2 only.");
                     debugLevel = 1;
                     debugLevelString = "1";
-                }
-            }
-            else if (strVariable == "Heartbeat Server Port")
-            {
-                Int32.TryParse(strValue, out this.heartbeatServerPort);
-            }
-            else if (strVariable == "Heartbeat Server IP")
-            {
-                this.heartbeatServerIp = strValue;
-            }
-            else if (strVariable == "Heartbeat Client Identifier")
-            {
-                this.heartbeatClientIdentifier = strValue;
-            }
-            else if (strVariable == "Send heartbeats?")
-            {
-                this.sendHeartbeatsString = strValue;
-                try
-                {
-                    sendHeartbeats = Int32.Parse(sendHeartbeatsString);
-                }
-                catch (Exception z)
-                {
-                    toConsole(1, "Invalid heartbeat toggle! Choose 0 (false) or 1 (true) only.");
-                    sendHeartbeats = 0;
-                    sendHeartbeatsString = "0";
                 }
             }
         }
