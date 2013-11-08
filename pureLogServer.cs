@@ -31,21 +31,21 @@ namespace PRoConEvents
         private String mySqlDatabase;
         private String mySqlUsername;
         private String mySqlPassword;
-        private int intervalLength = 60000;
+        //private int intervalLength = 60000;
 
         //private MySqlConnection firstConnection;
         private MySqlConnection confirmedConnection;
         //private bool SqlConnected = true;
-        private String bigTableName;
-        private String dayTableName;
+        private String bigTableName = "bigtable";
+        private String dayTableName = "daytable";
 
         private String debugLevelString = "1";
         private int debugLevel = 1;
         private int backupCache = 0;
         private int backupRuns = 0;
         //pureLog 2
-        private String adminTableName;
-        private String seederTableName;
+        private String adminTableName = "admintable";
+        private String seederTableName = "seedertable";
         private String adminListString;
         private String seederListString;
         private List<String> playerNameList;
@@ -140,7 +140,7 @@ namespace PRoConEvents
                 confirmedConnection = firstConnection;
                 this.updateTimer = new Timer();
                 this.updateTimer.Elapsed += new ElapsedEventHandler(this.output);
-                this.updateTimer.Interval = intervalLength;
+                this.updateTimer.Interval = 60000;
                 this.updateTimer.Start();
                 //this.output();
             }
@@ -305,7 +305,7 @@ namespace PRoConEvents
         }
         public string GetPluginVersion()
         {
-            return "1.2.7";
+            return "1.3.1";
         }
         public string GetPluginAuthor()
         {
@@ -317,8 +317,8 @@ namespace PRoConEvents
         }
         public string GetPluginDescription()
         {
-            return @"<p><b>This version of
-pureLog is currently in development.</b> Not all features may
+            return @"<p><b>This version of pureLog is currently in development.</b>
+Not all features may
 be available or function properly.<br>
 </p>
 <p>pureLog is a MySQL database driven game-time analytics plugin
@@ -335,12 +335,9 @@ Awesome
 <p><big><b>Initial Setup:</b></big><br>
 </p>
 <ol>
-  <li>Create a table in the database (Big Table) with three
-columns: id (INT), date (VARCHAR 255), and min (INT). Set id to
-auto-increment.</li>
-  <li>Make another table in the database (Day Table) with three
-columns: id (INT), time (VARCHAR 255), and min (INT). Set id to
-auto-increment.</li>
+  <li>Make a new MySQL database, or choose an existing one. I
+recommend starting with a new database for organizational purposes.</li>
+  <li>Run the MySQL commands...</li>
   <li>Use an IP address for the hostname. </li>
   <li>The default port for remote MySQL
 connections is 3306 (on PURE servers, use 3603).</li>
@@ -358,21 +355,23 @@ and 2.</li>
   <ol>
   </ol>
 </ol>
-<p><b>Steps 1 and 2
-can be accomplished using the default MySQL setup commands, which can
-be found below.</b> <br>
+<p><b>MySQL Commands:</b> <br>
 </p>
 <ul>
   <li>CREATE TABLE bigtable(id int NOT NULL AUTO_INCREMENT, date
 varchar(255), min int(11), PRIMARY KEY (id));
   </li>
   <li>CREATE TABLE daytable(id int NOT NULL AUTO_INCREMENT, time
-varchar(255), min int(11), PRIMARY KEY (id));
-  </li>
+varchar(255), min int(11), PRIMARY KEY (id));</li>
+  <li>CREATE TABLE seedertable(id int NOT NULL AUTO_INCREMENT,
+date varchar(255), user varchar(255), min int(11), PRIMARY KEY (id));</li>
+  <li>CREATE TABLE admintable(id int NOT NULL AUTO_INCREMENT,
+date varchar(255), user varchar(255), min int(11), PRIMARY KEY (id));</li>
 </ul>
-<p>If you choose to run the commands above for the initial setup,
-in the plugin settings, set Big Table name to 'bigtable' and Day Table
-name to 'daytable'.</p>
+<p>If you choose to rename 'bigtable', 'daytable', 'seedertable'
+and 'admintable'&nbsp;<b>be sure to rename every instance
+they appear</b> in the MySQL commands. Failure to do so will
+cause issues with daily maintenance tasks.</p>
 <p><big><b>Understanding
 the Table Structure:</b></big></p>
 <p>Every row in the Big Table stands for a different day, as
@@ -386,13 +385,46 @@ the time column. The Day Table's min column stores the amount of
 players recorded during that time interval. At the beginning of each
 new day, the total sum of all the intervals is inserted into the Big
 Table as an entry for the previous day, and then the Day Table is reset.</p>
+<p>Seeder and admin team activity tracking is stored in the
+Seeder Table and Admin Table, respectively. Each row corresponds to a
+tracked user's activity for the day, recorded in player-minutes. The
+'threshold' player count setting determines when seeders are not
+credited and when admins are credited. If the current player count is
+under the threshold, both seeders and admins tracked are counted as
+seeders. When above, admins are credited as admins and seeder activity
+is ignored. For example:</p>
+<ul>
+  <li>Seeder 'Bob' and Admin 'Joe' are being tracked by pureLog.
+The threshold is 9 players.</li>
+  <li>The current player count is 3, and Bob is seeding. Joe
+connects.</li>
+  <ul>
+    <li>Bob is getting credit as a seeder.</li>
+    <li>Joe is getting credit as a seeder, even though he is an
+admin.</li>
+  </ul>
+  <li>Other players join and the player count is raised to 9.</li>
+  <ul>
+    <li>Bob no longer gets credit as a seeder.</li>
+    <li>Joe is getting credit as an admin.</li>
+  </ul>
+</ul>
+The threshold setting prevents seeders and admins from trying to
+artificially boost their statistics by connecting at inopportune times.
+There is no point in seeding a server that is almost full, and an admin
+watching over a server that is close to empty barely has to pay
+attention, if at all.
 <p><big><b>Troubleshooting: </b></big><br>
 </p>
 <ul>
   <li>The IP address that Procon uses to access the MySQL server
-is different from the IP of the layer itself. If a remote connection
+may be different from the IP of the layer itself. If a remote
+connection
 can't be established, try using more wildcards in the accepted
 connections (do %.%.%.% to test).</li>
+  <li>There is an error message that always appears when
+initializing pureLog on a new database. It can be safely ignored and
+should disappear in the next minute.</li>
 </ul>
 <p><big><b>Fallbacks: </b></big><br>
 </p>
@@ -402,16 +434,15 @@ fails, the plugin will continue adding minutes to the most recent day.
 A new day for the plugin only begins when the connection is successful.
   </li>
   <li>On the case of a MySQL connection failure, the plugin will
-skip the next five insertion attempts to avoid overloading PRoCon.
+skip the next five insertion attempts to avoid overloading PRoCon and
+the server.
 Missing intervals will be summed up into one when a connection is
 re-established.</li>
   <li>If an initial connection can't be established, the plugin
 will try again once every minute. All error messages will be shown in
 the console output with debug level set to 1.</li>
 </ul>
-
-
-                    ";
+";
         }
 
         //---------------------------------------------------
