@@ -293,7 +293,7 @@ namespace PRoConEvents
         }
         public string GetPluginVersion()
         {
-            return "1.3.8";
+            return "1.3.9";
         }
         public string GetPluginAuthor()
         {
@@ -319,7 +319,11 @@ differentiate between administrators and seeders if necessary.<br>
 <p>This plugin was developed by analytalica and is currently a
 PURE Battlefield exclusive.</p>
 <p><big><b>What's New in pureLog 2.0?</b></big></p>
-<p><b>Instant On:</b> No more waiting around for
+<p><b>User Tracking:</b> Log the player-minutes of
+your
+server's seeder and admin teams to make
+sure they're doing their job.<br>
+<b>Instant On:</b> No more waiting around for
 pureLog to get started
 launching. Disabling and re-enabling the plugin immediately attempts a
 new connection. </p>
@@ -328,14 +332,16 @@ new connection. </p>
 <ol>
   <li>Make a new MySQL database, or choose an existing one. I
 recommend starting with a new database for organizational purposes.</li>
-  <li>Run the MySQL commands...</li>
+  <li>With the database selected, run the MySQL commands as
+instructed below.</li>
   <li>Use an IP address for the hostname. </li>
   <li>The default port for remote MySQL
 connections is 3306 (on PURE servers, use 3603).</li>
   <li>Set the database you want this plugin to connect to.
 Multiple databases will be needed for multiple servers and plugins.</li>
   <li>Provide a username and password combination with the
-permissions (SELECT, INSERT, UPDATE, DELETE) necessary to access that
+permissions (SELECT, INSERT, UPDATE, DELETE, TRIGGER) necessary to
+access that
 database.</li>
   <li>The debug levels are as follows: 0
 suppresses ALL messages (not recommended), 1 shows important messages
@@ -346,22 +352,16 @@ and 2.</li>
   <ol>
   </ol>
 </ol>
-<p><b>MySQL Commands:</b> <br>
+<p><b>MySQL Commands:</b><br>
 </p>
-<ul>
-  <li>CREATE TABLE bigtable(id int NOT NULL AUTO_INCREMENT, date
-varchar(255), min int(11), PRIMARY KEY (id));
-  </li>
-  <li>CREATE TABLE daytable(id int NOT NULL AUTO_INCREMENT, time
-varchar(255), min int(11), PRIMARY KEY (id));</li>
-  <li>CREATE TABLE seedertable(id int NOT NULL AUTO_INCREMENT,
-date varchar(255), user varchar(255), min int(11), PRIMARY KEY (id));</li>
-  <li>CREATE TABLE admintable(id int NOT NULL AUTO_INCREMENT,
-date varchar(255), user varchar(255), min int(11), PRIMARY KEY (id));</li>
-</ul>
+<p>In pureLog 2.0, the default setup commands have been moved to
+a .sql
+file. Because the database name varies, you will need to manually
+select it ('USE database_name') before running the queries.<b><br>
+</b> </p>
 <p>If you choose to rename 'bigtable', 'daytable', 'seedertable'
 and 'admintable'&nbsp;<b>be sure to rename every instance
-they appear</b> in the MySQL commands. Failure to do so will
+they appear</b> in the .sql file. Failure to do so will
 cause issues with daily maintenance tasks.</p>
 <p><big><b>How it Works:</b></big></p>
 <p>Every row in the Big Table stands for a different day, as
@@ -399,7 +399,8 @@ admin.</li>
     <li>Joe is getting credit as an admin.</li>
   </ul>
 </ul>
-<p>The threshold setting prevents seeders and admins from trying to
+<p>The threshold setting prevents seeders and admins from trying
+to
 artificially boost their statistics by connecting at inopportune times.
 There is no point in seeding a server that is almost full, and an admin
 watching over a server that is close to empty barely has to pay
@@ -412,7 +413,8 @@ may be different from the IP of the layer itself. If a remote
 connection
 can't be established, try using more wildcards in the accepted
 connections (do %.%.%.% to test).</li>
-  <li>(Fixed as of pureLog 1.3.8) There is an error message that always appears when
+  <li>(Fixed as of pureLog 1.3.8) There is an error message that
+always appears when
 initializing pureLog on a new database. It can be safely ignored and
 should disappear in the next minute.</li>
 </ul>
@@ -432,6 +434,7 @@ re-established.</li>
 will try again once every minute. All error messages will be shown in
 the console output with debug level set to 1.</li>
 </ul>
+
 ";
         }
 
