@@ -118,7 +118,6 @@ namespace PRoConEvents
         //The first thing the plugin does.
         public void establishFirstConnection(object source, ElapsedEventArgs e)
         {
-            this.initialTimer.Interval = 60000;
             bool SqlConnected = true;
             this.toConsole(2, "Trying to connect to " + mySqlHostname + ":" + mySqlPort + " with username " + mySqlUsername);
             MySqlConnection firstConnection = new MySqlConnection("Server=" + mySqlHostname + ";" + "Port=" + mySqlPort + ";" + "Database=" + mySqlDatabase + ";" + "Uid=" + mySqlUsername + ";" + "Pwd=" + mySqlPassword + ";" + "Connection Timeout=5;");
@@ -146,6 +145,7 @@ namespace PRoConEvents
             else
             {
                 this.toConsole(1, "Could not establish an initial connection. I'll try again in a minute.");
+                this.toConsole(1, "The restart/restart/restart connection fix should no longer be necessary as of version 1.1.0.");
             }
         }
 
@@ -175,6 +175,43 @@ namespace PRoConEvents
 
                 this.toConsole(1, "Today is " + dateNow + ". Good morning!");
                 this.toConsole(2, "Summing up yesterday's player minutes...");
+
+                //Adding up yesterday's minutes...
+                /*
+                int minSum = 0;
+                query = new MySqlCommand("SELECT SUM(min) FROM " + dayTableName, this.confirmedConnection);
+                if (testQueryCon(query))
+                {
+                    try { minSum = int.Parse(query.ExecuteScalar().ToString()); }
+                    catch (Exception e)
+                    {
+                        this.toConsole(1, "Couldn't parse query! NOTE: If this is the first time running this plugin, ignore this error. It should go away in the next minute.");
+                        this.toConsole(1, e.ToString());
+                        abortUpdate = true;
+                    }
+                }
+                else { abortUpdate = true; }
+                query.Connection.Close();
+
+                this.toConsole(2, "Yesterday's sum was " + minSum + " player minutes.");
+
+                if (!abortUpdate)
+                {
+                    //Update yesterday's minutes...
+                    query = new MySqlCommand("UPDATE " + bigTableName + " SET min=" + minSum + " WHERE date='" + dateYesterday + "'", this.confirmedConnection);
+                    if (testQueryCon(query))
+                    {
+                        try { query.ExecuteNonQuery(); }
+                        catch (Exception e)
+                        {
+                            this.toConsole(1, "Couldn't parse query!");
+                            this.toConsole(1, e.ToString());
+                            abortUpdate = true;
+                        }
+                    }
+                    else { abortUpdate = true; }
+                    query.Connection.Close();
+                */
                 if (!updateBig(dateNow, dateYesterday))
                 {
                     this.toConsole(2, "Updated yesterday's minutes!");
@@ -293,7 +330,7 @@ namespace PRoConEvents
         }
         public string GetPluginVersion()
         {
-            return "1.3.8";
+            return "1.3.5";
         }
         public string GetPluginAuthor()
         {
@@ -318,11 +355,8 @@ differentiate between administrators and seeders if necessary.<br>
 </p>
 <p>This plugin was developed by analytalica and is currently a
 PURE Battlefield exclusive.</p>
-<p><big><b>What's New in pureLog 2.0?</b></big></p>
-<p><b>Instant On:</b> No more waiting around for
-pureLog to get started
-launching. Disabling and re-enabling the plugin immediately attempts a
-new connection. </p>
+<p><big><b>What's New in 2.0?</b></big></p>
+Awesome
 <p><big><b>Initial Setup:</b></big><br>
 </p>
 <ol>
@@ -363,7 +397,8 @@ date varchar(255), user varchar(255), min int(11), PRIMARY KEY (id));</li>
 and 'admintable'&nbsp;<b>be sure to rename every instance
 they appear</b> in the MySQL commands. Failure to do so will
 cause issues with daily maintenance tasks.</p>
-<p><big><b>How it Works:</b></big></p>
+<p><big><b>Understanding
+the Table Structure:</b></big></p>
 <p>Every row in the Big Table stands for a different day, as
 indicated by the timestamp found in the date column. The Big Table's
 min column stores the total amount of minutes players spent in game
@@ -399,11 +434,11 @@ admin.</li>
     <li>Joe is getting credit as an admin.</li>
   </ul>
 </ul>
-<p>The threshold setting prevents seeders and admins from trying to
+The threshold setting prevents seeders and admins from trying to
 artificially boost their statistics by connecting at inopportune times.
 There is no point in seeding a server that is almost full, and an admin
 watching over a server that is close to empty barely has to pay
-attention, if at all.</p>
+attention, if at all.
 <p><big><b>Troubleshooting: </b></big><br>
 </p>
 <ul>
@@ -412,7 +447,7 @@ may be different from the IP of the layer itself. If a remote
 connection
 can't be established, try using more wildcards in the accepted
 connections (do %.%.%.% to test).</li>
-  <li>(Fixed as of pureLog 1.3.8) There is an error message that always appears when
+  <li>There is an error message that always appears when
 initializing pureLog on a new database. It can be safely ignored and
 should disappear in the next minute.</li>
 </ul>
@@ -451,11 +486,12 @@ the console output with debug level set to 1.</li>
             this.toConsole(1, "pureLog Server Edition Running!");
             this.toConsole(2, "The plugin will try and connect once every minute. Please wait...");
 
-            //pureLog 2.0: Set an update timer, but try establishing the first connection immediately.
+            //Delay the first connection by a minute.
             this.initialTimer = new Timer();
             this.initialTimer.Elapsed += new ElapsedEventHandler(this.establishFirstConnection);
-            this.initialTimer.Interval = 2000;
+            this.initialTimer.Interval = 60000;
             this.initialTimer.Start();
+
         }
 
         public void OnPluginDisable()
