@@ -179,7 +179,8 @@ namespace PRoConEvents
                 {
                     this.toConsole(2, "Updated yesterday's minutes!");
                     //and finally, start a new day
-                    query = new MySqlCommand("INSERT INTO " + bigTableName + " (date) VALUES ('" + dateNow + "')", this.confirmedConnection);
+                    query = new MySqlCommand("INSERT INTO " + bigTableName + " (date) VALUES ('" + dateNow + "'); " + "DELETE FROM " + dayTableName + "; " + "ALTER TABLE " + dayTableName + " AUTO_INCREMENT = 1;", this.confirmedConnection);
+                    toConsole(3, "Executing Query: INSERT INTO " + bigTableName + " (date) VALUES ('" + dateNow + "'); " + "DELETE FROM " + dayTableName + "; " + "ALTER TABLE " + dayTableName + " AUTO_INCREMENT = 1;");
                     if (testQueryCon(query))
                     {
                         try { query.ExecuteNonQuery(); }
@@ -192,7 +193,7 @@ namespace PRoConEvents
                     }
                     else { abortUpdate = true; }
                     query.Connection.Close();
-
+                    /*
                     if (!abortUpdate)
                     {
                         this.toConsole(2, "New big table row inserted!");
@@ -216,7 +217,7 @@ namespace PRoConEvents
                             this.toConsole(2, "Day table reset!");
                             //clear the day table for a new day
                         }
-                    }
+                    }*/
                 }
             }
             else
@@ -293,7 +294,7 @@ namespace PRoConEvents
         }
         public string GetPluginVersion()
         {
-            return "1.3.9";
+            return "1.4.0";
         }
         public string GetPluginAuthor()
         {
@@ -320,13 +321,14 @@ differentiate between administrators and seeders if necessary.<br>
 PURE Battlefield exclusive.</p>
 <p><big><b>What's New in pureLog 2.0?</b></big></p>
 <p><b>User Tracking:</b> Log the player-minutes of
-your
-server's seeder and admin teams to make
+your server's seeder and admin teams to make
 sure they're doing their job.<br>
 <b>Instant On:</b> No more waiting around for
-pureLog to get started
-launching. Disabling and re-enabling the plugin immediately attempts a
-new connection. </p>
+pureLog to get started launching. Disabling and re-enabling the plugin immediately attempts a
+new connection.<br>
+<b>Speed Up:</b> The amount of original queries for player-minute tracking sent by pureLog has nearly been cut in half.<br>
+<b>Less Bugs:</b> Many bugs identified in pureLog 1.2 have been fixed in 2.0.
+<b></p>
 <p><big><b>Initial Setup:</b></big><br>
 </p>
 <ol>
