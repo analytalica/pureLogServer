@@ -294,7 +294,7 @@ namespace PRoConEvents
         }
         public string GetPluginVersion()
         {
-            return "1.4.0";
+            return "1.4.1";
         }
         public string GetPluginAuthor()
         {
@@ -328,7 +328,7 @@ pureLog to get started launching. Disabling and re-enabling the plugin immediate
 new connection.<br>
 <b>Speed Up:</b> The amount of original queries for player-minute tracking sent by pureLog has nearly been cut in half.<br>
 <b>Less Bugs:</b> Many bugs identified in pureLog 1.2 have been fixed in 2.0.
-<b></p>
+</p>
 <p><big><b>Initial Setup:</b></big><br>
 </p>
 <ol>
@@ -342,7 +342,7 @@ connections is 3306 (on PURE servers, use 3603).</li>
   <li>Set the database you want this plugin to connect to.
 Multiple databases will be needed for multiple servers and plugins.</li>
   <li>Provide a username and password combination with the
-permissions (SELECT, INSERT, UPDATE, DELETE, TRIGGER) necessary to
+permissions (SELECT, INSERT, UPDATE, DELETE, ALTER) necessary to
 access that
 database.</li>
   <li>The debug levels are as follows: 0
