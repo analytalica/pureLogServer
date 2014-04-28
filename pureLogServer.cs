@@ -42,11 +42,11 @@ namespace PRoConEvents
         private int backupCache = 0;
         private int backupRuns = 0;
         //pureLog 2
-        private String adminTableName = "admintable";
-        private String seederTableName = "seedertable";
-        private String adminListString;
-        private String seederListString;
-        private List<String> playerNameList;
+        //private String adminTableName = "admintable";
+        //private String seederTableName = "seedertable";
+        //private String adminListString;
+        //private String seederListString;
+        //private List<String> playerNameList;
 
         public pureLogServer()
         {
@@ -193,36 +193,11 @@ namespace PRoConEvents
                     }
                     else { abortUpdate = true; }
                     query.Connection.Close();
-                    /*
-                    if (!abortUpdate)
-                    {
-                        this.toConsole(2, "New big table row inserted!");
-                        //clear the day table for a new day
-
-                        query = new MySqlCommand("DELETE FROM " + dayTableName, this.confirmedConnection);
-                        if (testQueryCon(query))
-                        {
-                            try { query.ExecuteNonQuery(); }
-                            catch (Exception e)
-                            {
-                                this.toConsole(1, "Couldn't parse query!");
-                                this.toConsole(1, e.ToString());
-                                abortUpdate = true;
-                            }
-                        }
-                        else { abortUpdate = true; }
-                        query.Connection.Close();
-                        if (!abortUpdate)
-                        {
-                            this.toConsole(2, "Day table reset!");
-                            //clear the day table for a new day
-                        }
-                    }*/
                 }
             }
             else
             {
-                toConsole(2, "pureLog 2.0 thinks it's the same day.");
+                toConsole(2, "pureLog 1.5 thinks it's the same day.");
             }
         }
 
@@ -231,23 +206,23 @@ namespace PRoConEvents
             bool abortUpdate = false;
 
             this.toConsole(1, "Today is " + dateNow + ". Good morning!");
-            this.toConsole(2, "pureLog 2.0 Testing New Update Function...");
+            this.toConsole(2, "pureLog 1.5 New Update Function...");
             //Update yesterday's minutes...
-            MySqlCommand query = new MySqlCommand("UPDATE " + bigTableName + " SET min=(SELECT SUM(min) FROM " + dayTableName + ") WHERE date='" + dateYesterday + "'", this.confirmedConnection);
-            toConsole(3, "Executing Query: " + "UPDATE " + bigTableName + " SET min=(SELECT SUM(min) FROM " + dayTableName + ") WHERE date='" + dateYesterday + "'");
+            MySqlCommand query = new MySqlCommand("UPDATE " + bigTableName + " SET min=(SELECT SUM(min) FROM " + dayTableName + "), emptyTime=(SELECT COUNT(*) FROM " + dayTableName + " WHERE min=0) WHERE date='" + dateYesterday + "'", this.confirmedConnection);
+            toConsole(3, "Executing Query: " + "UPDATE " + bigTableName + " SET min=(SELECT SUM(min) FROM " + dayTableName + "), emptyTime=(SELECT COUNT(*) FROM " + dayTableName + " WHERE min=0) WHERE date='" + dateYesterday + "'");
             if (testQueryCon(query))
             {
                 try { query.ExecuteNonQuery(); }
                 catch (Exception e)
                 {
-                    this.toConsole(1, "Couldn't parse query! pureLog 2.0 Update Function.");
+                    this.toConsole(1, "Couldn't parse query! pureLog 1.5+ Update Function.");
                     this.toConsole(1, e.ToString());
                     abortUpdate = true;
                 }
             }
             else { abortUpdate = true; }
             query.Connection.Close();
-            this.toConsole(2, "pureLog 2.0 Update Complete!");
+            this.toConsole(2, "pureLog 1.5+ Update Complete!");
 
             return abortUpdate;
         }
@@ -294,7 +269,7 @@ namespace PRoConEvents
         }
         public string GetPluginVersion()
         {
-            return "1.4.1";
+            return "1.5.0";
         }
         public string GetPluginAuthor()
         {
@@ -319,16 +294,20 @@ differentiate between administrators and seeders if necessary.<br>
 </p>
 <p>This plugin was developed by analytalica and is currently a
 PURE Battlefield exclusive.</p>
-<p><big><b>What's New in pureLog 2.0?</b></big></p>
+<p><big><b>What's New in pureLog 1.5+?</b></big></p>
 <p>
 <b>Instant On:</b> No more waiting around for
-pureLog to get started launching. Disabling and re-enabling the plugin immediately attempts a
+pureLog to get started launching. Disabling and re-enabling the plugin
+immediately attempts a
 new connection.<br>
-<b>Speed Up:</b> The amount of original queries for player-minute tracking sent by pureLog has nearly been cut in half.<br>
-<b>Less Bugs:</b> Many bugs identified in pureLog 1.2 have been fixed in 2.0.
+<b>Speed Up:</b> The amount of original queries for
+player-minute tracking sent by pureLog has nearly been cut in half.<br>
+<b>Less Bugs:</b> Many bugs identified in pureLog 1.2 have
+been fixed in 1.5+.<br>
+<b>emptyTime:</b> Know how long the server at zero players is empty each day.</b>
 </p>
 <p><big><b>Initial Setup:</b></big><br>
-</p></b>
+</p>
 <ol>
   <li>Make a new MySQL database, or choose an existing one. I
 recommend starting with a new database for organizational purposes.</li>
@@ -354,66 +333,39 @@ and 2.</li>
 </ol>
 <p><b>MySQL Commands:</b><br>
 </p>
-<p>In pureLog 2.0, the default setup commands have been moved to
-a .sql
-file. Because the database name varies, you will need to manually
-select it ('USE database_name') before running the queries.<b><br>
-</b> </p>
-<p>If you choose to rename 'bigtable', 'daytable', 'seedertable'
-and 'admintable'&nbsp;<b>be sure to rename every instance
-they appear</b> in the .sql file. Failure to do so will
-cause issues with daily maintenance tasks.</p>
+<ul>
+  <li>CREATE TABLE IF NOT EXISTS bigtable(id int NOT NULL
+AUTO_INCREMENT, date varchar(255), min int(11), emptyTime int(11),
+PRIMARY KEY (id));</li>
+  <li>CREATE TABLE IF NOT EXISTS daytable(id int NOT NULL
+AUTO_INCREMENT, time varchar(255), min int(11), PRIMARY KEY (id));</li>
+</ul>
+Because the database name varies, you will need to manually
+select it ('USE database_name') before running the queries.
 <p><big><b>How it Works:</b></big></p>
 <p>Every row in the Big Table stands for a different day, as
 indicated by the timestamp found in the date column. The Big Table's
 min column stores the total amount of minutes players spent in game
 that day. On a 64-player server, there is a maximum of 60*24*64 = 92160
-in-game minutes possible per day.</p>
+in-game minutes possible per day. The emptyTime column records the
+amount of minutes the server is empty at zero players.</p>
 <p>Every row in the Day Table stands for a different interval
 (typically polled every minute), as indicated by the timestamp found in
 the time column. The Day Table's min column stores the amount of
 players recorded during that time interval. At the beginning of each
 new day, the total sum of all the intervals is inserted into the Big
 Table as an entry for the previous day, and then the Day Table is reset.</p>
-<p>Seeder and admin team activity tracking is stored in the
-Seeder Table and Admin Table, respectively. Each row corresponds to a
-tracked user's activity for the day, recorded in player-minutes. The
-'threshold' player count setting determines when seeders are not
-credited and when admins are credited. If the current player count is
-under the threshold, both seeders and admins tracked are counted as
-seeders. When above, admins are credited as admins and seeder activity
-is ignored. For example:</p>
-<ul>
-  <li>Seeder 'Bob' and Admin 'Joe' are being tracked by pureLog.
-The threshold is 9 players.</li>
-  <li>The current player count is 3, and Bob is seeding. Joe
-connects.</li>
-  <ul>
-    <li>Bob is getting credit as a seeder.</li>
-    <li>Joe is getting credit as a seeder, even though he is an
-admin.</li>
-  </ul>
-  <li>Other players join and the player count is raised to 9.</li>
-  <ul>
-    <li>Bob no longer gets credit as a seeder.</li>
-    <li>Joe is getting credit as an admin.</li>
-  </ul>
-</ul>
-<p>The threshold setting prevents seeders and admins from trying
-to
-artificially boost their statistics by connecting at inopportune times.
-There is no point in seeding a server that is almost full, and an admin
-watching over a server that is close to empty barely has to pay
-attention, if at all.</p>
 <p><big><b>Troubleshooting: </b></big><br>
 </p>
 <ul>
-  <li>The IP address that Procon uses to access the MySQL server
+  <li>The IP address that Procon uses to access the MySQL
+server
 may be different from the IP of the layer itself. If a remote
 connection
 can't be established, try using more wildcards in the accepted
 connections (do %.%.%.% to test).</li>
-  <li>(Fixed as of pureLog 1.3.8) There is an error message that
+  <li>(Fixed as of pureLog 1.3.8) There is an error message
+that
 always appears when
 initializing pureLog on a new database. It can be safely ignored and
 should disappear in the next minute.</li>
@@ -421,11 +373,13 @@ should disappear in the next minute.</li>
 <p><big><b>Fallbacks: </b></big><br>
 </p>
 <ul>
-  <li>If at any step in the table updating process the connection
+  <li>If at any step in the table updating process the
+connection
 fails, the plugin will continue adding minutes to the most recent day.
 A new day for the plugin only begins when the connection is successful.
   </li>
-  <li>On the case of a MySQL connection failure, the plugin will
+  <li>On the case of a MySQL connection failure, the plugin
+will
 skip the next five insertion attempts to avoid overloading PRoCon and
 the server.
 Missing intervals will be summed up into one when a connection is
@@ -435,6 +389,7 @@ will try again once every minute. All error messages will be shown in
 the console output with debug level set to 1.</li>
 </ul>
 
+
 ";
         }
 
@@ -443,8 +398,8 @@ the console output with debug level set to 1.</li>
         //---------------------------------------------------
         public void OnPluginLoaded(string strHostName, string strPort, string strPRoConVersion)
         {
-            this.RegisterEvents(this.GetType().Name, "OnServerInfo", "OnListPlayers");
-            //this.RegisterEvents(this.GetType().Name, "OnPluginLoaded", "OnServerInfo");
+            //this.RegisterEvents(this.GetType().Name, "OnServerInfo", "OnListPlayers");
+            this.RegisterEvents(this.GetType().Name, "OnPluginLoaded", "OnServerInfo");
             this.ExecuteCommand("procon.protected.pluginconsole.write", "pureLog Server Edition Loaded!");
         }
 
@@ -477,15 +432,15 @@ the console output with debug level set to 1.</li>
             this.playerCount = csiServerInfo.PlayerCount;
         }
 
-        public override void OnListPlayers(List<CPlayerInfo> players, CPlayerSubset subset)
-        {
-            toConsole(3, "OnListPlayers");
-            foreach (CPlayerInfo player in players)
-            {
-                toConsole(3, "Printing names");
-                toConsole(3, player.SoldierName);
-            }
-        }
+        //public override void OnListPlayers(List<CPlayerInfo> players, CPlayerSubset subset)
+        //{
+        //    toConsole(3, "OnListPlayers");
+        //    foreach (CPlayerInfo player in players)
+        //    {
+        //        toConsole(3, "Printing names");
+        //        toConsole(3, player.SoldierName);
+        //    }
+        //}
 
         public List<CPluginVariable> GetDisplayPluginVariables()
         {
@@ -497,10 +452,10 @@ the console output with debug level set to 1.</li>
             lstReturn.Add(new CPluginVariable("MySQL Settings|MySQL Password", typeof(string), mySqlPassword));
             lstReturn.Add(new CPluginVariable("Table Names|Big Table", typeof(string), bigTableName));
             lstReturn.Add(new CPluginVariable("Table Names|Day Table", typeof(string), dayTableName));
-            lstReturn.Add(new CPluginVariable("Table Names|Admin Table", typeof(string), adminTableName));
-            lstReturn.Add(new CPluginVariable("Table Names|Seeder Table", typeof(string), seederTableName));
-            lstReturn.Add(new CPluginVariable("Tracked Players|Admin List", typeof(string), adminListString));
-            lstReturn.Add(new CPluginVariable("Tracked Players|Seeder List", typeof(string), seederListString));
+            //lstReturn.Add(new CPluginVariable("Table Names|Admin Table", typeof(string), adminTableName));
+            //lstReturn.Add(new CPluginVariable("Table Names|Seeder Table", typeof(string), seederTableName));
+            //lstReturn.Add(new CPluginVariable("Tracked Players|Admin List", typeof(string), adminListString));
+            //lstReturn.Add(new CPluginVariable("Tracked Players|Seeder List", typeof(string), seederListString));
             lstReturn.Add(new CPluginVariable("Other|Debug Level", typeof(string), debugLevelString));
             return lstReturn;
         }
@@ -531,40 +486,40 @@ the console output with debug level set to 1.</li>
             }
             else if (Regex.Match(strVariable, @"MySQL Database").Success)
             {
-                mySqlDatabase = strValue;
+                mySqlDatabase = strValue.Trim();
             }
             else if (Regex.Match(strVariable, @"MySQL Username").Success)
             {
-                mySqlUsername = strValue;
+                mySqlUsername = strValue.Trim();
             }
             else if (Regex.Match(strVariable, @"MySQL Password").Success)
             {
-                mySqlPassword = strValue;
+                mySqlPassword = strValue.Trim();
             }
             else if (Regex.Match(strVariable, @"Big Table").Success)
             {
-                bigTableName = strValue;
+                bigTableName = strValue.Trim();
             }
             else if (Regex.Match(strVariable, @"Day Table").Success)
             {
-                dayTableName = strValue;
+                dayTableName = strValue.Trim();
             }
-            else if (Regex.Match(strVariable, @"Admin Table").Success)
-            {
-                adminTableName = strValue;
-            }
-            else if (Regex.Match(strVariable, @"Seeder Table").Success)
-            {
-                seederTableName = strValue;
-            }
-            else if (Regex.Match(strVariable, @"Admin List").Success)
-            {
-                adminListString = strValue;
-            }
-            else if (Regex.Match(strVariable, @"Seeder List").Success)
-            {
-                seederListString = strValue;
-            }
+            //else if (Regex.Match(strVariable, @"Admin Table").Success)
+            //{
+            //    adminTableName = strValue;
+            //}
+            //else if (Regex.Match(strVariable, @"Seeder Table").Success)
+            //{
+            //    seederTableName = strValue;
+            //}
+            //else if (Regex.Match(strVariable, @"Admin List").Success)
+            //{
+            //    adminListString = strValue;
+            //}
+            //else if (Regex.Match(strVariable, @"Seeder List").Success)
+            //{
+            //    seederListString = strValue;
+            //}
             else if (Regex.Match(strVariable, @"Debug Level").Success)
             {
                 debugLevelString = strValue;
