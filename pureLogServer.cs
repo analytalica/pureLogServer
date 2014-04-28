@@ -320,9 +320,7 @@ differentiate between administrators and seeders if necessary.<br>
 <p>This plugin was developed by analytalica and is currently a
 PURE Battlefield exclusive.</p>
 <p><big><b>What's New in pureLog 2.0?</b></big></p>
-<p><b>User Tracking:</b> Log the player-minutes of
-your server's seeder and admin teams to make
-sure they're doing their job.<br>
+<p>
 <b>Instant On:</b> No more waiting around for
 pureLog to get started launching. Disabling and re-enabling the plugin immediately attempts a
 new connection.<br>
@@ -330,7 +328,7 @@ new connection.<br>
 <b>Less Bugs:</b> Many bugs identified in pureLog 1.2 have been fixed in 2.0.
 </p>
 <p><big><b>Initial Setup:</b></big><br>
-</p>
+</p></b>
 <ol>
   <li>Make a new MySQL database, or choose an existing one. I
 recommend starting with a new database for organizational purposes.</li>
