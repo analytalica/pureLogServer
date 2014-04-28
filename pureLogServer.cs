@@ -269,7 +269,7 @@ namespace PRoConEvents
         }
         public string GetPluginVersion()
         {
-            return "1.5.0";
+            return "1.5.1";
         }
         public string GetPluginAuthor()
         {
@@ -333,15 +333,18 @@ and 2.</li>
 </ol>
 <p><b>MySQL Commands:</b><br>
 </p>
+<p>
 <ul>
   <li>CREATE TABLE IF NOT EXISTS bigtable(id int NOT NULL
 AUTO_INCREMENT, date varchar(255), min int(11), emptyTime int(11),
 PRIMARY KEY (id));</li>
   <li>CREATE TABLE IF NOT EXISTS daytable(id int NOT NULL
 AUTO_INCREMENT, time varchar(255), min int(11), PRIMARY KEY (id));</li>
-</ul>
+</ul></p>
+<p>
 Because the database name varies, you will need to manually
 select it ('USE database_name') before running the queries.
+</p>
 <p><big><b>How it Works:</b></big></p>
 <p>Every row in the Big Table stands for a different day, as
 indicated by the timestamp found in the date column. The Big Table's
