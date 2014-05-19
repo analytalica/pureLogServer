@@ -37,7 +37,6 @@ namespace PRoConEvents
         private String bigTableName = "bigtable";
         private String dayTableName = "daytable";
 
-        private String debugLevelString = "1";
         private int debugLevel = 1;
         private int backupCache = 0;
         private int backupRuns = 0;
@@ -50,14 +49,13 @@ namespace PRoConEvents
 
         public pureLogServer()
         {
-
         }
 
+		//Primary operations. output() is run once every minute.
         public void output(object source, ElapsedEventArgs e)
         {
             if (pluginEnabled > 0)
             {
-                //this.toChat("pureLog Server Tracking " + playerCount + " players online.");
                 this.toConsole(2, "pureLog Server Tracking " + playerCount + " players online.");
                 bool abortUpdate = false;
 
@@ -115,41 +113,9 @@ namespace PRoConEvents
             }
         }
 
-        //The first thing the plugin does.
-        public void establishFirstConnection(object source, ElapsedEventArgs e)
-        {
-            this.initialTimer.Interval = 60000;
-            bool SqlConnected = true;
-            this.toConsole(2, "Trying to connect to " + mySqlHostname + ":" + mySqlPort + " with username " + mySqlUsername);
-            MySqlConnection firstConnection = new MySqlConnection("Server=" + mySqlHostname + ";" + "Port=" + mySqlPort + ";" + "Database=" + mySqlDatabase + ";" + "Uid=" + mySqlUsername + ";" + "Pwd=" + mySqlPassword + ";" + "Connection Timeout=5;");
-            try { firstConnection.Open(); }
-            catch (Exception z)
-            {
-                this.toConsole(1, "Initial connection error!");
-                this.toConsole(1, z.ToString());
-                SqlConnected = false;
-            }
-            //Get ready to rock!
-            if (SqlConnected)
-            {
-                firstConnection.Close();
-                this.toConsole(1, "Connection established with " + mySqlHostname + "!");
-                this.toConsole(2, "Stopping connection retry attempts timer...");
-                this.initialTimer.Stop();
-                confirmedConnection = firstConnection;
-                this.updateTimer = new Timer();
-                this.updateTimer.Elapsed += new ElapsedEventHandler(this.output);
-                this.updateTimer.Interval = 60000;
-                this.updateTimer.Start();
-                //this.output();
-            }
-            else
-            {
-                this.toConsole(1, "Could not establish an initial connection. I'll try again in a minute.");
-            }
-        }
-
-        //Is it a new day?
+        //Is it a new day? 
+		//The goodMorning() function is meant to handle ALL maintenance tasks that recur with every new day.
+		//It works by checking to see if a row in the bigTable exists for the current day.
         public void goodMorning()
         {
             String dateNow = DateTime.Now.ToString("MMddyyyy");
@@ -168,17 +134,22 @@ namespace PRoConEvents
             }
             query.Connection.Close();
 
-            //There are no rows with today's date in the big table. Must be a new day!
             if (rowCount == 0)
             {
+				//There are no rows with today's date in the big table. Must be a new day!
+				//Insert all tasks that run every new day here.
+				
+				//pureLog player-minute counter reset
                 bool abortUpdate = false;
 
                 this.toConsole(1, "Today is " + dateNow + ". Good morning!");
                 this.toConsole(2, "Summing up yesterday's player minutes...");
+				//Update yesterday with the content from today
                 if (!updateBig(dateNow, dateYesterday))
                 {
                     this.toConsole(2, "Updated yesterday's minutes!");
                     //and finally, start a new day
+					//Insert a new row in the big table for today, and clear the day table.
                     query = new MySqlCommand("INSERT INTO " + bigTableName + " (date) VALUES ('" + dateNow + "'); " + "DELETE FROM " + dayTableName + "; " + "ALTER TABLE " + dayTableName + " AUTO_INCREMENT = 1;", this.confirmedConnection);
                     toConsole(3, "Executing Query: INSERT INTO " + bigTableName + " (date) VALUES ('" + dateNow + "'); " + "DELETE FROM " + dayTableName + "; " + "ALTER TABLE " + dayTableName + " AUTO_INCREMENT = 1;");
                     if (testQueryCon(query))
@@ -227,15 +198,6 @@ namespace PRoConEvents
             return abortUpdate;
         }
 
-        //---------------------------------------------------
-        //Helper functions
-        //---------------------------------------------------
-
-        public void toChat(String message)
-        {
-            this.ExecuteCommand("procon.protected.send", "admin.say", "pureLogS: " + message, "all");
-        }
-
         public void toConsole(int msgLevel, String message)
         {
             //a message with msgLevel 1 is more important than 2
@@ -244,7 +206,8 @@ namespace PRoConEvents
                 this.ExecuteCommand("procon.protected.pluginconsole.write", "pureLogS: " + message);
             }
         }
-
+		
+		//Test the connection to see if it's valid.
         public bool testQueryCon(MySqlCommand theQuery)
         {
             try { theQuery.Connection.Open(); }
@@ -259,17 +222,13 @@ namespace PRoConEvents
             return true;
         }
 
-        //---------------------------------------------------
-        // Attributes
-        //---------------------------------------------------
-
         public string GetPluginName()
         {
             return "pureLog Server Edition";
         }
         public string GetPluginVersion()
         {
-            return "1.5.1";
+            return "1.5.3";
         }
         public string GetPluginAuthor()
         {
@@ -396,9 +355,6 @@ the console output with debug level set to 1.</li>
 ";
         }
 
-        //---------------------------------------------------
-        // Config (totally not a ripoff of some other plugins)
-        //---------------------------------------------------
         public void OnPluginLoaded(string strHostName, string strPort, string strPRoConVersion)
         {
             //this.RegisterEvents(this.GetType().Name, "OnServerInfo", "OnListPlayers");
@@ -418,10 +374,45 @@ the console output with debug level set to 1.</li>
             this.initialTimer.Interval = 2000;
             this.initialTimer.Start();
         }
+		
+        //The first thing the plugin does.
+        public void establishFirstConnection(object source, ElapsedEventArgs e)
+        {
+            this.initialTimer.Interval = 60000;
+            bool SqlConnected = true;
+            this.toConsole(2, "Trying to connect to " + mySqlHostname + ":" + mySqlPort + " with username " + mySqlUsername);
+            MySqlConnection firstConnection = new MySqlConnection("Server=" + mySqlHostname + ";" + "Port=" + mySqlPort + ";" + "Database=" + mySqlDatabase + ";" + "Uid=" + mySqlUsername + ";" + "Pwd=" + mySqlPassword + ";" + "Connection Timeout=5;");
+            try { firstConnection.Open(); }
+            catch (Exception z)
+            {
+                this.toConsole(1, "Initial connection error!");
+                this.toConsole(1, z.ToString());
+                SqlConnected = false;
+            }
+            //Get ready to rock!
+            if (SqlConnected)
+            {
+                firstConnection.Close();
+                this.toConsole(1, "Connection established with " + mySqlHostname + "!");
+                this.toConsole(2, "Stopping connection retry attempts timer...");
+                this.initialTimer.Stop();
+                confirmedConnection = firstConnection;
+                this.updateTimer = new Timer();
+                this.updateTimer.Elapsed += new ElapsedEventHandler(this.output);
+                this.updateTimer.Interval = 60000;
+                this.updateTimer.Start();
+                //this.output();
+            }
+            else
+            {
+                this.toConsole(1, "Could not establish an initial connection. I'll try again in a minute.");
+            }
+        }
 
         public void OnPluginDisable()
         {
             this.pluginEnabled = 0;
+			//Does this actually do anything? I dunno.
             this.ExecuteCommand("procon.protected.tasks.remove", "pureLogServer");
             this.toConsole(2, "Stopping connection retry attempts timer...");
             this.initialTimer.Stop();
@@ -459,7 +450,7 @@ the console output with debug level set to 1.</li>
             //lstReturn.Add(new CPluginVariable("Table Names|Seeder Table", typeof(string), seederTableName));
             //lstReturn.Add(new CPluginVariable("Tracked Players|Admin List", typeof(string), adminListString));
             //lstReturn.Add(new CPluginVariable("Tracked Players|Seeder List", typeof(string), seederListString));
-            lstReturn.Add(new CPluginVariable("Other|Debug Level", typeof(string), debugLevelString));
+            lstReturn.Add(new CPluginVariable("Other|Debug Level", typeof(string), debugLevel.ToString()));
             return lstReturn;
         }
 
@@ -470,11 +461,11 @@ the console output with debug level set to 1.</li>
 
         public void SetPluginVariable(string strVariable, string strValue)
         {
-            if (Regex.Match(strVariable, @"MySQL Hostname").Success)
+            if (strVariable.Contains("MySQL Hostname"))
             {
                 mySqlHostname = strValue;
             }
-            else if (Regex.Match(strVariable, @"MySQL Port").Success)
+            else if (strVariable.Contains("MySQL Port"))
             {
                 int tmp = 3306;
                 int.TryParse(strValue, out tmp);
@@ -487,54 +478,52 @@ the console output with debug level set to 1.</li>
                     this.ExecuteCommand("procon.protected.pluginconsole.write", "Invalid SQL Port Value.");
                 }
             }
-            else if (Regex.Match(strVariable, @"MySQL Database").Success)
+            else if (strVariable.Contains("MySQL Database"))
             {
                 mySqlDatabase = strValue.Trim();
             }
-            else if (Regex.Match(strVariable, @"MySQL Username").Success)
+            else if (strVariable.Contains("MySQL Username"))
             {
                 mySqlUsername = strValue.Trim();
             }
-            else if (Regex.Match(strVariable, @"MySQL Password").Success)
+            else if (strVariable.Contains("MySQL Password"))
             {
                 mySqlPassword = strValue.Trim();
             }
-            else if (Regex.Match(strVariable, @"Big Table").Success)
+            else if (strVariable.Contains("Big Table"))
             {
                 bigTableName = strValue.Trim();
             }
-            else if (Regex.Match(strVariable, @"Day Table").Success)
+            else if (strVariable.Contains("Day Table"))
             {
                 dayTableName = strValue.Trim();
             }
-            //else if (Regex.Match(strVariable, @"Admin Table").Success)
+            //else if (strVariable.Contains("Admin Table"))
             //{
             //    adminTableName = strValue;
             //}
-            //else if (Regex.Match(strVariable, @"Seeder Table").Success)
+            //else if (strVariable.Contains("Seeder Table"))
             //{
             //    seederTableName = strValue;
             //}
-            //else if (Regex.Match(strVariable, @"Admin List").Success)
+            //else if (strVariable.Contains("Admin List"))
             //{
             //    adminListString = strValue;
             //}
-            //else if (Regex.Match(strVariable, @"Seeder List").Success)
+            //else if (strVariable.Contains("Seeder List"))
             //{
             //    seederListString = strValue;
             //}
-            else if (Regex.Match(strVariable, @"Debug Level").Success)
+            else if (strVariable.Contains("Debug Level"))
             {
-                debugLevelString = strValue;
                 try
                 {
-                    debugLevel = Int32.Parse(debugLevelString);
+                    debugLevel = Int32.Parse(strValue);
                 }
                 catch (Exception z)
                 {
                     toConsole(1, "Invalid debug level! Choose 0, 1, or 2 only.");
                     debugLevel = 1;
-                    debugLevelString = "1";
                 }
             }
         }
