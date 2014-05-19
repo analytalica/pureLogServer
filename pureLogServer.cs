@@ -371,6 +371,7 @@ the console output with debug level set to 1.</li>
             //pureLog 2.0: Set an update timer, but try establishing the first connection immediately.
             this.initialTimer = new Timer();
             this.initialTimer.Elapsed += new ElapsedEventHandler(this.establishFirstConnection);
+			//Run the function "establishFirstConnection" in two seconds.
             this.initialTimer.Interval = 2000;
             this.initialTimer.Start();
         }
@@ -378,6 +379,7 @@ the console output with debug level set to 1.</li>
         //The first thing the plugin does.
         public void establishFirstConnection(object source, ElapsedEventArgs e)
         {
+			//Run this again in 60 seconds IF it fails the first time.
             this.initialTimer.Interval = 60000;
             bool SqlConnected = true;
             this.toConsole(2, "Trying to connect to " + mySqlHostname + ":" + mySqlPort + " with username " + mySqlUsername);
@@ -395,6 +397,7 @@ the console output with debug level set to 1.</li>
                 firstConnection.Close();
                 this.toConsole(1, "Connection established with " + mySqlHostname + "!");
                 this.toConsole(2, "Stopping connection retry attempts timer...");
+				//Stop the timer that attempts connections.
                 this.initialTimer.Stop();
                 confirmedConnection = firstConnection;
                 this.updateTimer = new Timer();
