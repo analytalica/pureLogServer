@@ -40,12 +40,6 @@ namespace PRoConEvents
         private int debugLevel = 1;
         private int backupCache = 0;
         private int backupRuns = 0;
-        //pureLog 2
-        //private String adminTableName = "admintable";
-        //private String seederTableName = "seedertable";
-        //private String adminListString;
-        //private String seederListString;
-        //private List<String> playerNameList;
 
         public pureLogServer()
         {
@@ -63,6 +57,8 @@ namespace PRoConEvents
                 DateTime rightNow = DateTime.Now;
                 String rightNowHour = rightNow.ToString("%H");
                 String rightNowMinutes = rightNow.ToString("%m");
+                //Okay in retrospect this was a really dumb conversion workaround, but if it ain't broke, don't fix it.
+                //This gets the time in minutes since 00:00.
                 int rightNowMinTotal = (Convert.ToInt32(rightNowHour)) * 60 + Convert.ToInt32(rightNowMinutes);
                 int totalPlayerCount = playerCount + backupCache;
 
@@ -71,7 +67,8 @@ namespace PRoConEvents
                     //Check for a new day
                     this.goodMorning();
                     //Insert the latest interval, plus any backup cache
-
+                    //The 'min' and 'time' columns take the 'totalPlayerCount' and 'rightNowMinTotal' values respectively.
+                    //Use the connection established when the plugin was started.
                     MySqlCommand query = new MySqlCommand("INSERT INTO " + dayTableName + " (min, time) VALUES ('" + totalPlayerCount + "','" + rightNowMinTotal + "')", this.confirmedConnection);
                     if (testQueryCon(query))
                     {
@@ -118,10 +115,12 @@ namespace PRoConEvents
 		//It works by checking to see if a row in the bigTable exists for the current day.
         public void goodMorning()
         {
+            //Get the date string values for today and yesterday.
             String dateNow = DateTime.Now.ToString("MMddyyyy");
             String dateYesterday = DateTime.Now.AddDays(-1).ToString("MMddyyyy");
 
             int rowCount = 999;
+            //Does a row containing today's date value exist?
             MySqlCommand query = new MySqlCommand("SELECT COUNT(*) FROM " + bigTableName + " WHERE date='" + dateNow + "'", this.confirmedConnection);
             if (testQueryCon(query))
             {
@@ -144,12 +143,14 @@ namespace PRoConEvents
 
                 this.toConsole(1, "Today is " + dateNow + ". Good morning!");
                 this.toConsole(2, "Summing up yesterday's player minutes...");
-				//Update yesterday with the content from today
+				//Update yesterday with the content from today.
+                //Calls updateBig.
                 if (!updateBig(dateNow, dateYesterday))
                 {
                     this.toConsole(2, "Updated yesterday's minutes!");
                     //and finally, start a new day
-					//Insert a new row in the big table for today, and clear the day table.
+					//Insert a new row in the big table for today,
+                    //and clear the day table.
                     query = new MySqlCommand("INSERT INTO " + bigTableName + " (date) VALUES ('" + dateNow + "'); " + "DELETE FROM " + dayTableName + "; " + "ALTER TABLE " + dayTableName + " AUTO_INCREMENT = 1;", this.confirmedConnection);
                     toConsole(3, "Executing Query: INSERT INTO " + bigTableName + " (date) VALUES ('" + dateNow + "'); " + "DELETE FROM " + dayTableName + "; " + "ALTER TABLE " + dayTableName + " AUTO_INCREMENT = 1;");
                     if (testQueryCon(query))
@@ -179,6 +180,8 @@ namespace PRoConEvents
             this.toConsole(1, "Today is " + dateNow + ". Good morning!");
             this.toConsole(2, "pureLog 1.5 New Update Function...");
             //Update yesterday's minutes...
+            //Note the nested MySQL function. The min in bigTable is set to the total sum of min in the dayTable. Clever, huh?
+            //emptyTime is the amount of time the server is found empty, aka the number of rows where the player count (min) is 0.
             MySqlCommand query = new MySqlCommand("UPDATE " + bigTableName + " SET min=(SELECT SUM(min) FROM " + dayTableName + "), emptyTime=(SELECT COUNT(*) FROM " + dayTableName + " WHERE min=0) WHERE date='" + dateYesterday + "'", this.confirmedConnection);
             toConsole(3, "Executing Query: " + "UPDATE " + bigTableName + " SET min=(SELECT SUM(min) FROM " + dayTableName + "), emptyTime=(SELECT COUNT(*) FROM " + dayTableName + " WHERE min=0) WHERE date='" + dateYesterday + "'");
             if (testQueryCon(query))
@@ -208,6 +211,8 @@ namespace PRoConEvents
         }
 		
 		//Test the connection to see if it's valid.
+        //Run this every time, just to be safe. 
+        //IF CONNECTION OK, MAKE SURE TO CLOSE THE CONNECTION AFTERWARDS IN YOUR OTHER CODE!
         public bool testQueryCon(MySqlCommand theQuery)
         {
             try { theQuery.Connection.Open(); }
@@ -399,7 +404,7 @@ the console output with debug level set to 1.</li>
                 this.toConsole(2, "Stopping connection retry attempts timer...");
 				//Stop the timer that attempts connections.
                 this.initialTimer.Stop();
-                confirmedConnection = firstConnection;
+                this.confirmedConnection = firstConnection;
                 this.updateTimer = new Timer();
                 this.updateTimer.Elapsed += new ElapsedEventHandler(this.output);
                 this.updateTimer.Interval = 60000;
@@ -442,17 +447,15 @@ the console output with debug level set to 1.</li>
         public List<CPluginVariable> GetDisplayPluginVariables()
         {
             List<CPluginVariable> lstReturn = new List<CPluginVariable>();
+            //MySQL connection info.
             lstReturn.Add(new CPluginVariable("MySQL Settings|MySQL Hostname", typeof(string), mySqlHostname));
             lstReturn.Add(new CPluginVariable("MySQL Settings|MySQL Port", typeof(string), mySqlPort));
             lstReturn.Add(new CPluginVariable("MySQL Settings|MySQL Database", typeof(string), mySqlDatabase));
             lstReturn.Add(new CPluginVariable("MySQL Settings|MySQL Username", typeof(string), mySqlUsername));
             lstReturn.Add(new CPluginVariable("MySQL Settings|MySQL Password", typeof(string), mySqlPassword));
+            //Table info.
             lstReturn.Add(new CPluginVariable("Table Names|Big Table", typeof(string), bigTableName));
             lstReturn.Add(new CPluginVariable("Table Names|Day Table", typeof(string), dayTableName));
-            //lstReturn.Add(new CPluginVariable("Table Names|Admin Table", typeof(string), adminTableName));
-            //lstReturn.Add(new CPluginVariable("Table Names|Seeder Table", typeof(string), seederTableName));
-            //lstReturn.Add(new CPluginVariable("Tracked Players|Admin List", typeof(string), adminListString));
-            //lstReturn.Add(new CPluginVariable("Tracked Players|Seeder List", typeof(string), seederListString));
             lstReturn.Add(new CPluginVariable("Other|Debug Level", typeof(string), debugLevel.ToString()));
             return lstReturn;
         }
@@ -501,22 +504,6 @@ the console output with debug level set to 1.</li>
             {
                 dayTableName = strValue.Trim();
             }
-            //else if (strVariable.Contains("Admin Table"))
-            //{
-            //    adminTableName = strValue;
-            //}
-            //else if (strVariable.Contains("Seeder Table"))
-            //{
-            //    seederTableName = strValue;
-            //}
-            //else if (strVariable.Contains("Admin List"))
-            //{
-            //    adminListString = strValue;
-            //}
-            //else if (strVariable.Contains("Seeder List"))
-            //{
-            //    seederListString = strValue;
-            //}
             else if (strVariable.Contains("Debug Level"))
             {
                 try
