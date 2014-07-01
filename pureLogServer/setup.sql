@@ -7,7 +7,7 @@ Each game server should have a unique daytable and bigtable.
 */
 
 CREATE TABLE IF NOT EXISTS daytable(id int NOT NULL AUTO_INCREMENT, time varchar(255), min int(11), PRIMARY KEY (id));
-CREATE TABLE IF NOT EXISTS bigtable(id int NOT NULL AUTO_INCREMENT, date varchar(255), min int(11), PRIMARY KEY (id));
+CREATE TABLE IF NOT EXISTS bigtable(id int NOT NULL AUTO_INCREMENT, date varchar(255), min int(11), emptyTime int(11), PRIMARY KEY (id));
 
 
 /* 
