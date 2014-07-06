@@ -1,5 +1,7 @@
 /* 
 
+Don't forget to select your default schema!
+
 The 'daytable' stores a row every minute including the current player count.
 The 'bigtable' stores the daily totals of the entries in the daytable. 
 Each game server should have a unique daytable and bigtable.
@@ -18,4 +20,4 @@ Each new week starts on midnight Sunday.
 
 */
 
-CREATE TABLE IF NOT EXISTS maintable (name VARCHAR(128), guid VARCHAR(128), weekOf DATE(), time INT, eventKey VARCHAR(128), primary key (guid, weekOf, eventKey));
+CREATE TABLE IF NOT EXISTS maintable (name VARCHAR(128), guid VARCHAR(128), weekOf DATE, time INT, eventKey VARCHAR(128), primary key (guid, weekOf, eventKey));

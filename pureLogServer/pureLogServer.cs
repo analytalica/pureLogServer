@@ -63,65 +63,68 @@ namespace PRoConEvents
         {
             if (pluginEnabled > 0)
             {
-                this.toConsole(2, "pureLog Server Tracking " + playerCount + " players online.");
-                this.toConsole(3, "Calling list players.");
-                this.ExecuteCommand("procon.protected.send", "admin.listPlayers", "all");
-
-                bool abortUpdate = false;
-
-                //what time is it?
-                DateTime rightNow = DateTime.Now;
-                String rightNowHour = rightNow.ToString("%H");
-                String rightNowMinutes = rightNow.ToString("%m");
-                //Okay in retrospect this was a really dumb conversion workaround, but if it ain't broke, don't fix it.
-                //This gets the time in minutes since 00:00.
-                int rightNowMinTotal = (Convert.ToInt32(rightNowHour)) * 60 + Convert.ToInt32(rightNowMinutes);
-                int totalPlayerCount = playerCount + backupCache;
-
-                if (backupRuns % 5 == 0)
+                if (this.hasConfirmedConnection)
                 {
-                    //Check for a new day
-                    this.goodMorning();
-                    //Insert the latest interval, plus any backup cache
-                    //The 'min' and 'time' columns take the 'totalPlayerCount' and 'rightNowMinTotal' values respectively.
-                    //Use the connection established when the plugin was started.
-                    MySqlCommand query = new MySqlCommand("INSERT INTO " + dayTableName + " (min, time) VALUES ('" + totalPlayerCount + "','" + rightNowMinTotal + "')", this.confirmedConnection);
-                    if (testQueryCon(query))
+                    this.toConsole(2, "pureLog Server Tracking " + playerCount + " players online.");
+                    this.toConsole(3, "Calling list players.");
+                    this.ExecuteCommand("procon.protected.send", "admin.listPlayers", "all");
+
+                    bool abortUpdate = false;
+
+                    //what time is it?
+                    DateTime rightNow = DateTime.Now;
+                    String rightNowHour = rightNow.ToString("%H");
+                    String rightNowMinutes = rightNow.ToString("%m");
+                    //Okay in retrospect this was a really dumb conversion workaround, but if it ain't broke, don't fix it.
+                    //This gets the time in minutes since 00:00.
+                    int rightNowMinTotal = (Convert.ToInt32(rightNowHour)) * 60 + Convert.ToInt32(rightNowMinutes);
+                    int totalPlayerCount = playerCount + backupCache;
+
+                    if (backupRuns % 5 == 0)
                     {
-                        try { query.ExecuteNonQuery(); }
-                        catch (Exception m)
+                        //Check for a new day
+                        this.goodMorning();
+                        //Insert the latest interval, plus any backup cache
+                        //The 'min' and 'time' columns take the 'totalPlayerCount' and 'rightNowMinTotal' values respectively.
+                        //Use the connection established when the plugin was started.
+                        MySqlCommand query = new MySqlCommand("INSERT INTO " + dayTableName + " (min, time) VALUES ('" + totalPlayerCount + "','" + rightNowMinTotal + "')", this.confirmedConnection);
+                        if (testQueryCon(query))
                         {
-                            this.toConsole(1, "Couldn't parse query!");
-                            this.toConsole(1, m.ToString());
-                            abortUpdate = true;
+                            try { query.ExecuteNonQuery(); }
+                            catch (Exception m)
+                            {
+                                this.toConsole(1, "Couldn't parse query!");
+                                this.toConsole(1, m.ToString());
+                                abortUpdate = true;
+                            }
                         }
+                        query.Connection.Close();
                     }
-                    query.Connection.Close();
-                }
-                else
-                {
-                    toConsole(2, "Skipping this day table insertion...");
-                    toConsole(2, "Current backup cache value: " + this.backupCache + " // The last " + this.backupRuns + " day table insertions were skipped.");
-                    this.backupCache += playerCount;
-                    this.backupRuns++;
-                }
+                    else
+                    {
+                        toConsole(2, "Skipping this day table insertion...");
+                        toConsole(2, "Current backup cache value: " + this.backupCache + " // The last " + this.backupRuns + " day table insertions were skipped.");
+                        this.backupCache += playerCount;
+                        this.backupRuns++;
+                    }
 
-                //Was the insertion a success?
-                if (!abortUpdate)
-                {
-                    toConsole(2, "Added an interval worth " + totalPlayerCount + " for timestamp " + rightNowMinTotal);
-                    //Clear out any remaining cache.
-                    this.backupRuns = 0;
-                    this.backupCache = 0;
-                }
-                else
-                {
-                    toConsole(1, "There's a connection problem. I'll try again in five minutes and put the next five intervals into the backup cache.");
-                    //Add missing minutes to cache.
-                    this.backupCache += playerCount;
-                    //Consider this run skipped.
-                    this.backupRuns++;
-                    toConsole(2, "Current backup cache value: " + this.backupCache + " // The last " + this.backupRuns + " day table insertions were skipped.");
+                    //Was the insertion a success?
+                    if (!abortUpdate)
+                    {
+                        toConsole(2, "Added an interval worth " + totalPlayerCount + " for timestamp " + rightNowMinTotal);
+                        //Clear out any remaining cache.
+                        this.backupRuns = 0;
+                        this.backupCache = 0;
+                    }
+                    else
+                    {
+                        toConsole(1, "There's a connection problem. I'll try again in five minutes and put the next five intervals into the backup cache.");
+                        //Add missing minutes to cache.
+                        this.backupCache += playerCount;
+                        //Consider this run skipped.
+                        this.backupRuns++;
+                        toConsole(2, "Current backup cache value: " + this.backupCache + " // The last " + this.backupRuns + " day table insertions were skipped.");
+                    }
                 }
 
                 if (pl2_hasConfirmedConnection)
@@ -264,7 +267,7 @@ namespace PRoConEvents
         }
         public string GetPluginVersion()
         {
-            return "1.7.0";
+            return "1.7.1";
         }
         #region Description
         public string GetPluginAuthor()
@@ -447,23 +450,33 @@ the console output with debug level set to 1.</li>
             }
             secondConnection.Close();
 
+            bool ready = false;
             //Get ready to rock!
             if (hasConfirmedConnection && !pl2_hasConfirmedConnection)
             {
                 this.toConsole(1, "Connection established with " + mySqlHostname + " (player minutes DB)!");
-                this.toConsole(1, "I was unable to connect to " + pl2_mySqlHostname + ". Individual player time tracking features have been disabled.");
-				//Stop the timer that attempts connections.
-                this.initialTimer.Stop();
-                this.confirmedConnection = firstConnection;
-                this.updateTimer = new Timer();
-                this.updateTimer.Elapsed += new ElapsedEventHandler(this.output);
-                this.updateTimer.Interval = 60000;
-                this.updateTimer.Start();
-                //this.output();
+                this.toConsole(1, "I was unable to connect to " + pl2_mySqlHostname + " (individual player playtime DB). Individual player playtime tracking features have been disabled.");
+                ready = true;
+            }
+            else if (!hasConfirmedConnection && pl2_hasConfirmedConnection)
+            {
+                this.toConsole(1, "Connection established with " + pl2_mySqlHostname + " (individual player playtime DB)!");
+                this.toConsole(1, "I was unable to connect to " + pl2_mySqlHostname + " (player minutes DB). Total player minute tracking features have been disabled..");
+                ready = true;
             }
             else if(hasConfirmedConnection && pl2_hasConfirmedConnection)
             {
                 this.toConsole(1, "Connection established with both " + mySqlHostname + " (player minutes DB) and " + pl2_mySqlHostname + " (individual player playtime DB)!");
+                ready = true;
+            }
+            else if(!hasConfirmedConnection && !pl2_hasConfirmedConnection)
+            {
+                this.toConsole(1, "Could not establish an initial connection with either database. I'll try again in a minute.");
+                ready = false;
+            }
+
+            if (ready)
+            {
                 //Stop the timer that attempts connections.
                 this.initialTimer.Stop();
                 this.confirmedConnection = firstConnection;
@@ -472,11 +485,8 @@ the console output with debug level set to 1.</li>
                 this.updateTimer.Elapsed += new ElapsedEventHandler(this.output);
                 this.updateTimer.Interval = 60000;
                 this.updateTimer.Start();
+                this.toConsole(1, "Starting operations.");
                 //this.output();
-            }
-            else if(!hasConfirmedConnection && !pl2_hasConfirmedConnection)
-            {
-                this.toConsole(1, "Could not establish an initial connection with either database. I'll try again in a minute.");
             }
         }
 
