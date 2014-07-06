@@ -33,6 +33,7 @@ namespace PRoConEvents
 
         //private MySqlConnection firstConnection;
         private MySqlConnection confirmedConnection;
+        private bool hasConfirmedConnection = false;
         //private bool SqlConnected = true;
         private String bigTableName = "bigtable";
         private String dayTableName = "daytable";
@@ -48,6 +49,8 @@ namespace PRoConEvents
         private String pl2_mySqlDatabase = "";
         private String pl2_mainTableName = "mainTable";
         private String pl2_eventKey = "";
+        private MySqlConnection pl2_confirmedConnection;
+        private bool pl2_hasConfirmedConnection = false;
         //Dictionary: <GUID, playerName>
         private Dictionary<String, String> pl2_inGameGUIDs = new Dictionary<String, String>();
 
@@ -121,12 +124,19 @@ namespace PRoConEvents
                     toConsole(2, "Current backup cache value: " + this.backupCache + " // The last " + this.backupRuns + " day table insertions were skipped.");
                 }
 
-                //pureLog 2
-                StringBuilder userTimeQuery = new StringBuilder();
-                foreach (KeyValuePair<String, String> pair in this.pl2_inGameGUIDs)
+                if (pl2_hasConfirmedConnection)
                 {
-                    this.toConsole(3, pair.Key + " , " + pair.Value);
-                    userTimeQuery.Append("INSERT INTO " + this.pl2_mainTableName + " (id, name, age) VALUES(1, 'A', 19) ON DUPLICATE KEY UPDATE name=VALUES(name), age=VALUES(age); ");
+                    //pureLog 2
+                    StringBuilder userTimeQuery = new StringBuilder();
+                    foreach (KeyValuePair<String, String> pair in this.pl2_inGameGUIDs)
+                    {
+                        this.toConsole(3, pair.Key + " , " + pair.Value);
+                        userTimeQuery.Append("INSERT INTO " + this.pl2_mainTableName + " (id, name, age) VALUES(1, 'A', 19) ON DUPLICATE KEY UPDATE name=VALUES(name), age=VALUES(age); ");
+                    }
+                }
+                else
+                {
+                    this.toConsole(2, "Individual player playtime is not being tracked because no connection could be made with the individual player playtime DB.");
                 }
             }
         }
@@ -254,7 +264,7 @@ namespace PRoConEvents
         }
         public string GetPluginVersion()
         {
-            return "1.6.3";
+            return "1.7.0";
         }
         #region Description
         public string GetPluginAuthor()
@@ -410,22 +420,38 @@ the console output with debug level set to 1.</li>
         {
 			//Run this again in 60 seconds IF it fails the first time.
             this.initialTimer.Interval = 60000;
-            bool SqlConnected = true;
+
+            //Connect to player minutes server.
+            this.hasConfirmedConnection = true;
             this.toConsole(2, "Trying to connect to " + mySqlHostname + ":" + mySqlPort + " with username " + mySqlUsername);
             MySqlConnection firstConnection = new MySqlConnection("Server=" + mySqlHostname + ";" + "Port=" + mySqlPort + ";" + "Database=" + mySqlDatabase + ";" + "Uid=" + mySqlUsername + ";" + "Pwd=" + mySqlPassword + ";" + "Connection Timeout=5;");
             try { firstConnection.Open(); }
             catch (Exception z)
             {
-                this.toConsole(1, "Initial connection error!");
+                this.toConsole(1, "Player Minutes MySQL DB Initial connection error!");
                 this.toConsole(1, z.ToString());
-                SqlConnected = false;
+                this.hasConfirmedConnection = false;
             }
-            //Get ready to rock!
-            if (SqlConnected)
+            firstConnection.Close();
+
+            //Connect to individual player playtime server.
+            this.pl2_hasConfirmedConnection = true;
+            this.toConsole(2, "Trying to connect to " + pl2_mySqlHostname + ":" + pl2_mySqlPort + " with username " + pl2_mySqlUsername);
+            MySqlConnection secondConnection = new MySqlConnection("Server=" + pl2_mySqlHostname + ";" + "Port=" + pl2_mySqlPort + ";" + "Database=" + pl2_mySqlDatabase + ";" + "Uid=" + pl2_mySqlUsername + ";" + "Pwd=" + pl2_mySqlPassword + ";" + "Connection Timeout=5;");
+            try { secondConnection.Open(); }
+            catch (Exception z)
             {
-                firstConnection.Close();
-                this.toConsole(1, "Connection established with " + mySqlHostname + "!");
-                this.toConsole(2, "Stopping connection retry attempts timer...");
+                this.toConsole(1, "Individual Player Playtime MySQL DB Initial connection error!");
+                this.toConsole(1, z.ToString());
+                this.pl2_hasConfirmedConnection = false;
+            }
+            secondConnection.Close();
+
+            //Get ready to rock!
+            if (hasConfirmedConnection && !pl2_hasConfirmedConnection)
+            {
+                this.toConsole(1, "Connection established with " + mySqlHostname + " (player minutes DB)!");
+                this.toConsole(1, "I was unable to connect to " + pl2_mySqlHostname + ". Individual player time tracking features have been disabled.");
 				//Stop the timer that attempts connections.
                 this.initialTimer.Stop();
                 this.confirmedConnection = firstConnection;
@@ -435,9 +461,22 @@ the console output with debug level set to 1.</li>
                 this.updateTimer.Start();
                 //this.output();
             }
-            else
+            else if(hasConfirmedConnection && pl2_hasConfirmedConnection)
             {
-                this.toConsole(1, "Could not establish an initial connection. I'll try again in a minute.");
+                this.toConsole(1, "Connection established with both " + mySqlHostname + " (player minutes DB) and " + pl2_mySqlHostname + " (individual player playtime DB)!");
+                //Stop the timer that attempts connections.
+                this.initialTimer.Stop();
+                this.confirmedConnection = firstConnection;
+                this.pl2_confirmedConnection = secondConnection;
+                this.updateTimer = new Timer();
+                this.updateTimer.Elapsed += new ElapsedEventHandler(this.output);
+                this.updateTimer.Interval = 60000;
+                this.updateTimer.Start();
+                //this.output();
+            }
+            else if(!hasConfirmedConnection && !pl2_hasConfirmedConnection)
+            {
+                this.toConsole(1, "Could not establish an initial connection with either database. I'll try again in a minute.");
             }
         }
 
@@ -451,6 +490,10 @@ the console output with debug level set to 1.</li>
             this.initialTimer.Stop();
             this.toConsole(2, "Stopping update timer...");
             this.updateTimer.Stop();
+            this.hasConfirmedConnection = false;
+            this.pl2_hasConfirmedConnection = false;
+            this.confirmedConnection.Close();
+            this.pl2_confirmedConnection.Close();
             this.toConsole(1, "pureLog Server Edition Closed.");
         }
 
