@@ -153,9 +153,21 @@ namespace PRoConEvents
                         StringBuilder userTimeQuery = new StringBuilder();
                         foreach (KeyValuePair<String, String> pair in this.pl2_inGameGUIDs)
                         {
-                            userTimeQuery.Append("INSERT INTO " + this.pl2_ippTableName + " (name, guid, weekOf, time, eventKey) VALUES('" + pair.Value + "', '" + pair.Key + "', '" + lastMonday.ToString("yyyy-MM-dd") + "' 1, '" + this.pl2_eventKey + "') ON DUPLICATE KEY UPDATE name=VALUES(name), time = time + 1; ");
+                            userTimeQuery.Append("INSERT INTO " + this.pl2_ippTableName + " (name, guid, weekOf, time, eventKey) VALUES('" + pair.Value + "', '" + pair.Key + "', '" + lastMonday.ToString("yyyy-MM-dd") + "', 1, '" + this.pl2_eventKey + "') ON DUPLICATE KEY UPDATE name=VALUES(name), time = time + 1; ");
                         }
-                        this.toConsole(2, userTimeQuery.ToString());
+                        this.toConsole(3, userTimeQuery.ToString());
+
+                        MySqlCommand query = new MySqlCommand(userTimeQuery.ToString(), this.pl2_confirmedConnection);
+                        if (testQueryCon(query))
+                        {
+                            try { query.ExecuteNonQuery(); }
+                            catch (Exception x)
+                            {
+                                this.toConsole(1, "Couldn't parse query!");
+                                this.toConsole(1, x.ToString());
+                            }
+                        }
+                        query.Connection.Close();
                     }
                     //string testTimeQuery = "INSERT INTO " + this.pl2_ippTableName + " (id, name, age) VALUES(1, 'A', 19) ON DUPLICATE KEY UPDATE name=VALUES(name), age = age + 1; ";
                 }
@@ -285,7 +297,7 @@ namespace PRoConEvents
         }
         public string GetPluginVersion()
         {
-            return "1.7.6";
+            return "1.9.0";
         }
         #region Description
         public string GetPluginAuthor()
@@ -526,8 +538,15 @@ the console output with debug level set to 1.</li>
             this.updateTimer.Stop();
             this.hasConfirmedConnection = false;
             this.pl2_hasConfirmedConnection = false;
-            this.confirmedConnection.Close();
-            this.pl2_confirmedConnection.Close();
+            try
+            {
+                this.confirmedConnection.Close();
+                this.pl2_confirmedConnection.Close();
+            }
+            catch (Exception e)
+            {
+                this.toConsole(1, e.ToString());
+            }
             this.toConsole(1, "pureLog Server Edition Closed.");
         }
 
@@ -559,26 +578,26 @@ the console output with debug level set to 1.</li>
         {
             List<CPluginVariable> lstReturn = new List<CPluginVariable>();
             //MySQL connection info.
-            lstReturn.Add(new CPluginVariable("Total Player-Minutes : MySQL Settings|MySQL Hostname", typeof(string), mySqlHostname));
-            lstReturn.Add(new CPluginVariable("Total Player-Minutes : MySQL Settings|MySQL Port", typeof(string), mySqlPort));
-            lstReturn.Add(new CPluginVariable("Total Player-Minutes : MySQL Settings|MySQL Database", typeof(string), mySqlDatabase));
-            lstReturn.Add(new CPluginVariable("Total Player-Minutes : MySQL Settings|MySQL Username", typeof(string), mySqlUsername));
-            lstReturn.Add(new CPluginVariable("Total Player-Minutes : MySQL Settings|MySQL Password", typeof(string), mySqlPassword));
+            lstReturn.Add(new CPluginVariable("1) Total Player-Minutes Tracking|MySQL Hostname", typeof(string), mySqlHostname));
+            lstReturn.Add(new CPluginVariable("1) Total Player-Minutes Tracking|MySQL Port", typeof(string), mySqlPort));
+            lstReturn.Add(new CPluginVariable("1) Total Player-Minutes Tracking|MySQL Database", typeof(string), mySqlDatabase));
+            lstReturn.Add(new CPluginVariable("1) Total Player-Minutes Tracking|MySQL Username", typeof(string), mySqlUsername));
+            lstReturn.Add(new CPluginVariable("1) Total Player-Minutes Tracking|MySQL Password", typeof(string), mySqlPassword));
             //Table info.
-            lstReturn.Add(new CPluginVariable("Total Player-Minutes : MySQL Settings|Big Table Name", typeof(string), bigTableName));
-            lstReturn.Add(new CPluginVariable("Total Player-Minutes : MySQL Settings|Day Table Name", typeof(string), dayTableName));
+            lstReturn.Add(new CPluginVariable("1) Total Player-Minutes Tracking|Big Table Name", typeof(string), bigTableName));
+            lstReturn.Add(new CPluginVariable("1) Total Player-Minutes Tracking|Day Table Name", typeof(string), dayTableName));
 
             //pureLog 2
-            lstReturn.Add(new CPluginVariable("Individual Player Playtime : MySQL Settings|MySQL Hostname", typeof(string), pl2_mySqlHostname));
-            lstReturn.Add(new CPluginVariable("Individual Player Playtime : MySQL Settings|MySQL Port", typeof(string), pl2_mySqlPort));
-            lstReturn.Add(new CPluginVariable("Individual Player Playtime : MySQL Settings|MySQL Database", typeof(string), pl2_mySqlDatabase));
-            lstReturn.Add(new CPluginVariable("Individual Player Playtime : MySQL Settings|MySQL Username", typeof(string), pl2_mySqlUsername));
-            lstReturn.Add(new CPluginVariable("Individual Player Playtime : MySQL Settings|MySQL Password", typeof(string), pl2_mySqlPassword));
+            lstReturn.Add(new CPluginVariable("2) Individual Player Playtime Tracking|ipp MySQL Hostname", typeof(string), pl2_mySqlHostname));
+            lstReturn.Add(new CPluginVariable("2) Individual Player Playtime Tracking|ipp MySQL Port", typeof(string), pl2_mySqlPort));
+            lstReturn.Add(new CPluginVariable("2) Individual Player Playtime Tracking|ipp MySQL Database", typeof(string), pl2_mySqlDatabase));
+            lstReturn.Add(new CPluginVariable("2) Individual Player Playtime Tracking|ipp MySQL Username", typeof(string), pl2_mySqlUsername));
+            lstReturn.Add(new CPluginVariable("2) Individual Player Playtime Tracking|ipp MySQL Password", typeof(string), pl2_mySqlPassword));
             //Table info.
-            lstReturn.Add(new CPluginVariable("Individual Player Playtime : MySQL Settings|Individual Player Playtime Table Name", typeof(string), pl2_ippTableName));
-            lstReturn.Add(new CPluginVariable("Individual Player Playtime : MySQL Settings|Server/Event Key", typeof(string), pl2_eventKey));
+            lstReturn.Add(new CPluginVariable("2) Individual Player Playtime Tracking|ipp Table Name", typeof(string), pl2_ippTableName));
+            lstReturn.Add(new CPluginVariable("2) Individual Player Playtime Tracking|ipp Server/Event Key", typeof(string), pl2_eventKey));
 
-            lstReturn.Add(new CPluginVariable("Other|Debug Level", typeof(string), debugLevel.ToString()));
+            lstReturn.Add(new CPluginVariable("3) Other|Debug Level", typeof(string), debugLevel.ToString()));
             return lstReturn;
         }
 
@@ -589,11 +608,11 @@ the console output with debug level set to 1.</li>
 
         public void SetPluginVariable(string strVariable, string strValue)
         {
-            if (strVariable.Contains("MySQL Hostname") && !strVariable.Contains("Individual Player Playtime"))
+            if (strVariable.Contains("MySQL Hostname") && !strVariable.Contains("ipp"))
             {
                 mySqlHostname = strValue;
             }
-            else if (strVariable.Contains("MySQL Port") && !strVariable.Contains("Individual Player Playtime"))
+            else if (strVariable.Contains("MySQL Port") && !strVariable.Contains("ipp"))
             {
                 int tmp = 3306;
                 int.TryParse(strValue, out tmp);
@@ -606,31 +625,32 @@ the console output with debug level set to 1.</li>
                     this.toConsole(1, "Invalid SQL Port Value.");
                 }
             }
-            else if (strVariable.Contains("MySQL Database") && !strVariable.Contains("Individual Player Playtime"))
+            else if (strVariable.Contains("MySQL Database") && !strVariable.Contains("ipp"))
             {
                 mySqlDatabase = strValue.Trim();
             }
-            else if (strVariable.Contains("MySQL Username") && !strVariable.Contains("Individual Player Playtime"))
+            else if (strVariable.Contains("MySQL Username") && !strVariable.Contains("ipp"))
             {
                 mySqlUsername = strValue.Trim();
             }
-            else if (strVariable.Contains("MySQL Password") && !strVariable.Contains("Individual Player Playtime"))
+            else if (strVariable.Contains("MySQL Password") && !strVariable.Contains("ipp"))
             {
                 mySqlPassword = strValue.Trim();
             }
-            else if (strVariable.Contains("Big Table") && !strVariable.Contains("Individual Player Playtime"))
+            else if (strVariable.Contains("Big Table") && !strVariable.Contains("ipp"))
             {
                 bigTableName = strValue.Trim();
             }
-            else if (strVariable.Contains("Day Table") && !strVariable.Contains("Individual Player Playtime"))
+            else if (strVariable.Contains("Day Table") && !strVariable.Contains("ipp"))
             {
                 dayTableName = strValue.Trim();
             }
-            else if (strVariable.Contains("MySQL Hostname") && strVariable.Contains("Individual Player Playtime"))
+            else if (strVariable.Contains("MySQL Hostname") && strVariable.Contains("ipp"))
             {
-                pl2_mySqlHostname = strValue;
+                this.toConsole(3, "pl2_mySqlHostname set!");
+                pl2_mySqlHostname = strValue.Trim();
             }
-            else if (strVariable.Contains("MySQL Port") && strVariable.Contains("Individual Player Playtime"))
+            else if (strVariable.Contains("MySQL Port") && strVariable.Contains("ipp"))
             {
                 int tmp = 3306;
                 int.TryParse(strValue, out tmp);
@@ -643,23 +663,23 @@ the console output with debug level set to 1.</li>
                     this.toConsole(1, "Invalid SQL Port Value.");
                 }
             }
-            else if (strVariable.Contains("MySQL Database") && strVariable.Contains("Individual Player Playtime"))
+            else if (strVariable.Contains("MySQL Database") && strVariable.Contains("ipp"))
             {
                 pl2_mySqlDatabase = strValue.Trim();
             }
-            else if (strVariable.Contains("MySQL Username") && strVariable.Contains("Individual Player Playtime"))
+            else if (strVariable.Contains("MySQL Username") && strVariable.Contains("ipp"))
             {
                 pl2_mySqlUsername = strValue.Trim();
             }
-            else if (strVariable.Contains("MySQL Password") && strVariable.Contains("Individual Player Playtime"))
+            else if (strVariable.Contains("MySQL Password") && strVariable.Contains("ipp"))
             {
                 pl2_mySqlPassword = strValue.Trim();
             }
-            else if (strVariable.Contains("Individual Player Playtime Table Name") && strVariable.Contains("Individual Player Playtime"))
+            else if (strVariable.Contains("ipp Table Name") && strVariable.Contains("ipp"))
             {
                 pl2_ippTableName = strValue.Trim();
             }
-            else if (strVariable.Contains("Server/Event Key") && strVariable.Contains("eventKey"))
+            else if (strVariable.Contains("ipp Server/Event Key"))
             {
                 pl2_eventKey = strValue.Trim();
             }
