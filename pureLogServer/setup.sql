@@ -14,10 +14,10 @@ CREATE TABLE IF NOT EXISTS bigtable(id int NOT NULL AUTO_INCREMENT, date varchar
 
 /* 
 
-The 'maintable' stores weekly data for individual players.
-Multiple servers can point to the same 'maintable'.
+The 'ipptable', or 'Individual Player Playtime Table' stores weekly data for individual players.
+Multiple servers can point to the same 'ipptable'.
 Each new week starts on midnight Sunday.
 
 */
 
-CREATE TABLE IF NOT EXISTS maintable (name VARCHAR(128), guid VARCHAR(128), weekOf DATE, time INT, eventKey VARCHAR(128), primary key (guid, weekOf, eventKey));
+CREATE TABLE IF NOT EXISTS ipptable (name VARCHAR(128), guid VARCHAR(128), weekOf DATE, time INT, eventKey VARCHAR(128), primary key (guid, weekOf, eventKey));

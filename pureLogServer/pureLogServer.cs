@@ -47,7 +47,7 @@ namespace PRoConEvents
         private String pl2_mySqlUsername = "";
         private String pl2_mySqlPassword = "";
         private String pl2_mySqlDatabase = "";
-        private String pl2_mainTableName = "mainTable";
+        private String pl2_ippTableName = "ipptable";
         private String pl2_eventKey = "";
         private MySqlConnection pl2_confirmedConnection;
         private bool pl2_hasConfirmedConnection = false;
@@ -63,6 +63,18 @@ namespace PRoConEvents
         {
             if (pluginEnabled > 0)
             {
+                if (this.hasConfirmedConnection)
+                {
+                    if (this.pl2_hasConfirmedConnection)
+                        this.toConsole(2, "Both logging operations are enabled.");
+                    else
+                        this.toConsole(2, "Only player minute logging operations are enabled.");
+                }
+                else
+                {
+                    this.toConsole(2, "Only individual player playtime logging operations are enabled.");
+                }
+
                 if (this.hasConfirmedConnection)
                 {
                     this.toConsole(2, "pureLog Server Tracking " + playerCount + " players online.");
@@ -130,16 +142,22 @@ namespace PRoConEvents
                 if (pl2_hasConfirmedConnection)
                 {
                     //pureLog 2
-                    StringBuilder userTimeQuery = new StringBuilder();
-                    foreach (KeyValuePair<String, String> pair in this.pl2_inGameGUIDs)
+                    //Get the last monday.
+                    DateTime lastMonday = DateTime.Now;
+                    while(lastMonday.DayOfWeek != DayOfWeek.Monday)
+                        lastMonday = lastMonday.AddDays(-1);
+                    this.toConsole(2, "Last Monday: " + lastMonday.ToString("yyyy-MM-dd"));
+
+                    if (pl2_inGameGUIDs.Count > 0)
                     {
-                        this.toConsole(3, pair.Key + " , " + pair.Value);
-                        userTimeQuery.Append("INSERT INTO " + this.pl2_mainTableName + " (id, name, age) VALUES(1, 'A', 19) ON DUPLICATE KEY UPDATE name=VALUES(name), age=VALUES(age); ");
+                        StringBuilder userTimeQuery = new StringBuilder();
+                        foreach (KeyValuePair<String, String> pair in this.pl2_inGameGUIDs)
+                        {
+                            userTimeQuery.Append("INSERT INTO " + this.pl2_ippTableName + " (name, guid, weekOf, time, eventKey) VALUES('" + pair.Value + "', '" + pair.Key + "', '" + lastMonday.ToString("yyyy-MM-dd") + "' 1, '" + this.pl2_eventKey + "') ON DUPLICATE KEY UPDATE name=VALUES(name), time = time + 1; ");
+                        }
+                        this.toConsole(2, userTimeQuery.ToString());
                     }
-                }
-                else
-                {
-                    this.toConsole(2, "Individual player playtime is not being tracked because no connection could be made with the individual player playtime DB.");
+                    //string testTimeQuery = "INSERT INTO " + this.pl2_ippTableName + " (id, name, age) VALUES(1, 'A', 19) ON DUPLICATE KEY UPDATE name=VALUES(name), age = age + 1; ";
                 }
             }
         }
@@ -267,7 +285,7 @@ namespace PRoConEvents
         }
         public string GetPluginVersion()
         {
-            return "1.7.1";
+            return "1.7.6";
         }
         #region Description
         public string GetPluginAuthor()
@@ -414,16 +432,19 @@ the console output with debug level set to 1.</li>
             this.initialTimer = new Timer();
             this.initialTimer.Elapsed += new ElapsedEventHandler(this.establishFirstConnection);
 			//Run the function "establishFirstConnection" in two seconds.
-            this.initialTimer.Interval = 2000;
+            this.initialTimer.Interval = 60000;
             this.initialTimer.Start();
+            this.pl2_eFC();
         }
 		
         //The first thing the plugin does.
         public void establishFirstConnection(object source, ElapsedEventArgs e)
         {
-			//Run this again in 60 seconds IF it fails the first time.
-            this.initialTimer.Interval = 60000;
+            this.pl2_eFC();
+        }
 
+        public void pl2_eFC()
+        {
             //Connect to player minutes server.
             this.hasConfirmedConnection = true;
             this.toConsole(2, "Trying to connect to " + mySqlHostname + ":" + mySqlPort + " with username " + mySqlUsername);
@@ -464,12 +485,12 @@ the console output with debug level set to 1.</li>
                 this.toConsole(1, "I was unable to connect to " + pl2_mySqlHostname + " (player minutes DB). Total player minute tracking features have been disabled..");
                 ready = true;
             }
-            else if(hasConfirmedConnection && pl2_hasConfirmedConnection)
+            else if (hasConfirmedConnection && pl2_hasConfirmedConnection)
             {
                 this.toConsole(1, "Connection established with both " + mySqlHostname + " (player minutes DB) and " + pl2_mySqlHostname + " (individual player playtime DB)!");
                 ready = true;
             }
-            else if(!hasConfirmedConnection && !pl2_hasConfirmedConnection)
+            else if (!hasConfirmedConnection && !pl2_hasConfirmedConnection)
             {
                 this.toConsole(1, "Could not establish an initial connection with either database. I'll try again in a minute.");
                 ready = false;
@@ -477,6 +498,9 @@ the console output with debug level set to 1.</li>
 
             if (ready)
             {
+                if (String.IsNullOrEmpty(this.pl2_eventKey) && pl2_hasConfirmedConnection)
+                    this.toConsole(1, "Warning: The server/event key is blank! It is strongly recommended you give each server/event a specific key for identification.");
+
                 //Stop the timer that attempts connections.
                 this.initialTimer.Stop();
                 this.confirmedConnection = firstConnection;
@@ -551,7 +575,8 @@ the console output with debug level set to 1.</li>
             lstReturn.Add(new CPluginVariable("Individual Player Playtime : MySQL Settings|MySQL Username", typeof(string), pl2_mySqlUsername));
             lstReturn.Add(new CPluginVariable("Individual Player Playtime : MySQL Settings|MySQL Password", typeof(string), pl2_mySqlPassword));
             //Table info.
-            lstReturn.Add(new CPluginVariable("Individual Player Playtime : MySQL Settings|Main Table Name", typeof(string), pl2_mainTableName));
+            lstReturn.Add(new CPluginVariable("Individual Player Playtime : MySQL Settings|Individual Player Playtime Table Name", typeof(string), pl2_ippTableName));
+            lstReturn.Add(new CPluginVariable("Individual Player Playtime : MySQL Settings|Server/Event Key", typeof(string), pl2_eventKey));
 
             lstReturn.Add(new CPluginVariable("Other|Debug Level", typeof(string), debugLevel.ToString()));
             return lstReturn;
@@ -630,9 +655,13 @@ the console output with debug level set to 1.</li>
             {
                 pl2_mySqlPassword = strValue.Trim();
             }
-            else if (strVariable.Contains("Main Table") && strVariable.Contains("Individual Player Playtime"))
+            else if (strVariable.Contains("Individual Player Playtime Table Name") && strVariable.Contains("Individual Player Playtime"))
             {
-                pl2_mainTableName = strValue.Trim();
+                pl2_ippTableName = strValue.Trim();
+            }
+            else if (strVariable.Contains("Server/Event Key") && strVariable.Contains("eventKey"))
+            {
+                pl2_eventKey = strValue.Trim();
             }
             else if (strVariable.Contains("Debug Level"))
             {
