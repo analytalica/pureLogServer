@@ -297,7 +297,7 @@ namespace PRoConEvents
         }
         public string GetPluginVersion()
         {
-            return "1.9.0";
+            return "2.0.0";
         }
         #region Description
         public string GetPluginAuthor()
@@ -310,70 +310,69 @@ namespace PRoConEvents
         }
         public string GetPluginDescription()
         {
-            return @"<p><b>This version of pureLog is currently in development.</b>
-Not all features may
-be available or function properly.<br>
+            return @"<p>pureLog is a MySQL database driven game-time analytics plugin
+for PRoCon. Its primary functions are to measure daily server
+popularity
+by logging the total amount of time spent in-game by
+players, designated as player-minutes, and to measure the game time of
+individual players on a week to week basis.<br>
 </p>
-<p>pureLog is a MySQL database driven game-time analytics plugin
-for PRoCon. Its primary function is to measure daily server popularity
-by logging the collective total amount of time spent in-game by
-players, designated as player-minutes. At the same time, pureLog is
-capable of tracking the player-minutes of select users and can
-differentiate between administrators and seeders if necessary.<br>
-</p>
-<p>This plugin was developed by analytalica and is currently a
+<p>This plugin was developed by Analytalica and is currently a
 PURE Battlefield exclusive.</p>
-<p><big><b>What's New in pureLog 1.5+?</b></big></p>
-<p>
-<b>Instant On:</b> No more waiting around for
-pureLog to get started launching. Disabling and re-enabling the plugin
-immediately attempts a
-new connection.<br>
-<b>Speed Up:</b> The amount of original queries for
-player-minute tracking sent by pureLog has nearly been cut in half.<br>
-<b>Less Bugs:</b> Many bugs identified in pureLog 1.2 have
-been fixed in 1.5+.<br>
-<b>emptyTime:</b> Know how long the server at zero players is empty each day.</b>
-</p>
 <p><big><b>Initial Setup:</b></big><br>
 </p>
+These features are configured individually. To disable either feature,
+simply leave all the configuration fields blank. You may get an error
+message, but the plugin will continue operations with only one feature
+connected.<br>
+<br>
+Configuring Total Player-Minutes Tracking:<br>
 <ol>
-  <li>Make a new MySQL database, or choose an existing one. I
-recommend starting with a new database for organizational purposes.</li>
-  <li>With the database selected, run the MySQL commands as
-instructed below.</li>
-  <li>Use an IP address for the hostname. </li>
-  <li>The default port for remote MySQL
-connections is 3306 (on PURE servers, use 3603).</li>
-  <li>Set the database you want this plugin to connect to.
-Multiple databases will be needed for multiple servers and plugins.</li>
+  <li>Make a new MySQL database, or choose an existing one.</li>
+  <li>With the database selected, run the first two MySQL
+commands included in the .sql file. This generates the bigtable and
+daytable.</li>
+  <li>Use an IP address for the hostname, or localhost. </li>
+  <li>Set the right port value. The default port for remote MySQL
+connections is 3306.</li>
+  <li>Set the database name you want this plugin to connect to,
+as chosen in steps 1 and 2.</li>
   <li>Provide a username and password combination with the
-permissions (SELECT, INSERT, UPDATE, DELETE, ALTER) necessary to
-access that
-database.</li>
+permissions&nbsp;SELECT, INSERT, UPDATE, DELETE, ALTER that can
+access the database chosen in steps 1 and 2.</li>
   <li>The debug levels are as follows: 0
 suppresses ALL messages (not recommended), 1 shows important messages
-only (recommended), and 2 shows ALL messages (useful for step by step
-debugging).</li>
-  <li>Set the table names to the same names chosen in steps 1
-and 2.</li>
+only (recommended), and 2 shows important debug messages.</li>
+  <li>If the table names were changed in step 2, reconfigure them
+accordingly. The default values are bigtable and daytable.</li>
+</ol>
+Configuring Individual Player Playtime Tracking:<br>
+<ol>
+  <li>Make a new MySQL database, or choose an existing one. It is
+fine to use the same one for both features.</li>
+  <li>With the database selected, run the third MySQL command
+included in the .sql file. This generates the ipptable.</li>
+  <li>Use an IP address for the hostname, or localhost. </li>
+  <li>Set the right port value. The default port for remote MySQL
+connections is 3306.</li>
+  <li>Set the database name you want this plugin to connect to,
+as chosen in steps 1 and 2.</li>
+  <li>Provide a username and password combination with the
+permissions&nbsp;SELECT, INSERT, UPDATE, DELETE, ALTER that can
+access the database chosen in steps 1 and 2.</li>
+  <li>The debug levels are as follows: 0
+suppresses ALL messages (not recommended), 1 shows important messages
+only (recommended), and 2 shows important debug messages.</li>
+  <li>If the table name was changed in step 2, reconfigure them
+accordingly. The default value is ipptable.</li>
+  <li>Set a unique server/event key for this server. During
+special events, you can reconfigure the key to separate data collected
+during events from the normal data.</li>
+</ol>
+<ol>
   <ol>
   </ol>
 </ol>
-<p><b>MySQL Commands:</b><br>
-</p>
-<p>
-<ul>
-  <li>CREATE TABLE IF NOT EXISTS bigtable(id int NOT NULL
-AUTO_INCREMENT, date varchar(255), min int(11), emptyTime int(11),
-PRIMARY KEY (id));</li>
-  <li>CREATE TABLE IF NOT EXISTS daytable(id int NOT NULL
-AUTO_INCREMENT, time varchar(255), min int(11), PRIMARY KEY (id));</li>
-</ul></p>
-<p>
-Because the database name varies, you will need to manually
-select it ('USE database_name') before running the queries.
-</p>
 <p><big><b>How it Works:</b></big></p>
 <p>Every row in the Big Table stands for a different day, as
 indicated by the timestamp found in the date column. The Big Table's
@@ -382,11 +381,15 @@ that day. On a 64-player server, there is a maximum of 60*24*64 = 92160
 in-game minutes possible per day. The emptyTime column records the
 amount of minutes the server is empty at zero players.</p>
 <p>Every row in the Day Table stands for a different interval
-(typically polled every minute), as indicated by the timestamp found in
+polled every minute, as indicated by the timestamp found in
 the time column. The Day Table's min column stores the amount of
 players recorded during that time interval. At the beginning of each
 new day, the total sum of all the intervals is inserted into the Big
 Table as an entry for the previous day, and then the Day Table is reset.</p>
+<p>Each minute, players found online are credited an additional
+minute in the 'Individual Player Playtime' ipptable. The table adds a
+new row or increments based on the timestamp and server/event key. Each
+new week starts on Monday.</p>
 <p><big><b>Troubleshooting: </b></big><br>
 </p>
 <ul>
@@ -396,11 +399,9 @@ may be different from the IP of the layer itself. If a remote
 connection
 can't be established, try using more wildcards in the accepted
 connections (do %.%.%.% to test).</li>
-  <li>(Fixed as of pureLog 1.3.8) There is an error message
-that
-always appears when
-initializing pureLog on a new database. It can be safely ignored and
-should disappear in the next minute.</li>
+  <li>If the incorrect port value is used but all other
+credentials are correct, you may not see any error messages. Manually
+query the database to make sure the plugin is tracking properly.</li>
 </ul>
 <p><big><b>Fallbacks: </b></big><br>
 </p>
@@ -420,7 +421,6 @@ re-established.</li>
 will try again once every minute. All error messages will be shown in
 the console output with debug level set to 1.</li>
 </ul>
-
 
 ";
         }
