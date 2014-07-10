@@ -308,7 +308,7 @@ namespace PRoConEvents
         }
         public string GetPluginVersion()
         {
-            return "2.0.1";
+            return "2.0.2";
         }
         #region Description
         public string GetPluginAuthor()
@@ -505,7 +505,7 @@ the console output with debug level set to 1.</li>
             else if (!hasConfirmedConnection && pl2_hasConfirmedConnection)
             {
                 this.toConsole(1, "Connection established with " + pl2_mySqlHostname + " (individual player playtime DB)!");
-                this.toConsole(1, "I was unable to connect to " + pl2_mySqlHostname + " (player minutes DB). Total player minute tracking features have been disabled..");
+                this.toConsole(1, "I was unable to connect to " + mySqlHostname + " (player minutes DB). Total player minute tracking features have been disabled..");
                 ready = true;
             }
             else if (hasConfirmedConnection && pl2_hasConfirmedConnection)
