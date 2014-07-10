@@ -151,9 +151,20 @@ namespace PRoConEvents
                     if (pl2_inGameGUIDs.Count > 0)
                     {
                         StringBuilder userTimeQuery = new StringBuilder();
-                        foreach (KeyValuePair<String, String> pair in this.pl2_inGameGUIDs)
+                        if (this.debugLevel < 6)
                         {
-                            userTimeQuery.Append("INSERT INTO " + this.pl2_ippTableName + " (name, guid, weekOf, time, eventKey) VALUES('" + pair.Value + "', '" + pair.Key + "', '" + lastMonday.ToString("yyyy-MM-dd") + "', 1, '" + this.pl2_eventKey + "') ON DUPLICATE KEY UPDATE name=VALUES(name), time = time + 1; ");
+                            foreach (KeyValuePair<String, String> pair in this.pl2_inGameGUIDs)
+                            {
+                                userTimeQuery.Append("INSERT INTO " + this.pl2_ippTableName + " (name, guid, weekOf, time, eventKey) VALUES('" + pair.Value + "', '" + pair.Key + "', '" + lastMonday.ToString("yyyy-MM-dd") + "', 1, '" + this.pl2_eventKey + "') ON DUPLICATE KEY UPDATE name=VALUES(name), time = time + 1; ");
+                            }
+                        }
+                        else
+                        {
+                            this.toConsole(2, "Debug Level larger than 6. Stress testing...");
+                            for (int i = 0; i < 100; i++)
+                            {
+                                userTimeQuery.Append("INSERT INTO ipptable (name, guid, weekOf, time, eventKey) VALUES('TEST', 'TEST', '2014-07-07', 1, 'dev') ON DUPLICATE KEY UPDATE name=VALUES(name), time = time + 1;");
+                            }
                         }
                         this.toConsole(3, userTimeQuery.ToString());
 
@@ -297,7 +308,7 @@ namespace PRoConEvents
         }
         public string GetPluginVersion()
         {
-            return "2.0.0";
+            return "2.0.1";
         }
         #region Description
         public string GetPluginAuthor()
